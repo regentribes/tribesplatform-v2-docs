@@ -2,6 +2,16 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.43',
+    date: '2026-05-23',
+    title: 'M01 shell consistency — every /network/* page now has the module sidebar + right panel',
+    items: [
+      '/network, /network/matches, /network/discover, /network/offers, /network/seeks all now render inside the same NetworkSidebar (left) + main content (middle) + NetworkRightPanel (right) shell that /u/[username] already had. Promoted that structure into network/layout.tsx as a server component so every M01 child route inherits it.',
+      'AppSideNav: M01 (Members) now stays highlighted when viewing any /u/[username] public profile page — those pages are conceptually part of M01, not orphaned.',
+      'Network layout fetches viewer profile, bio, and offers once and feeds the sidebar identity card + right-panel profile-completeness checklist. Logged-out visitors see the "Sign in" CTA in the sidebar and the "Join MyCoNet" CTA in the right panel.',
+    ],
+  },
+  {
     version: 'v3.42',
     date: '2026-05-23',
     title: 'M01 matching v2 — fuzzy skills, location, travel overlap, goal keywords; root docs consolidation',

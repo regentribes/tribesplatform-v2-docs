@@ -2,6 +2,25 @@
 
 ---
 
+## 2026-05-23 — v3.43 — M01 shell consistency across all /network/* and /u/* pages
+
+The `/network` dashboard had a different layout than `/u/[username]` — flat centered content vs. a three-column shell with the M01 sidebar and right panel. Same module, two different experiences. Fixed by promoting the shell to a Next.js layout so every /network/* child gets it for free, and updated the outer module nav to keep M01 highlighted on user-profile pages too.
+
+### What changed
+
+- **`web/src/app/network/layout.tsx`** — was a passthrough; now a server component that fetches the viewer's profile / bio / offers and wraps `{children}` in `NetworkSidebar` (left) + `<main className="net-content">` (middle) + `NetworkRightPanel` (right). The same three-column structure `/u/[username]` already used.
+- **`AppSideNav.tsx`** — `isActive('/network')` now also returns true when `pathname.startsWith('/u/')`. Public profile pages are conceptually part of M01 Members, so the outer module nav now stays highlighted on them.
+
+### Pages affected (all now get the M01 shell)
+
+`/network`, `/network/matches`, `/network/discover`, `/network/offers`, `/network/seeks`, `/network/profile`.
+
+### Logged-out behavior
+
+Visitors without a session see the sidebar's "Sign in" button and the right panel's "Join MyCoNet" CTA — same as `/u/[username]` already did for guests.
+
+---
+
 ## 2026-05-23 — v3.42 — M01 matching v2, root docs consolidation
 
 Ported the high-value matching dimensions from the v1 Replit prototype into the v2 codebase, then dropped the v1 dump entirely. Also consolidated two stale root planning docs into the canonical EXECUTIVE-SUMMARY and ARCHITECTURE files, and caught up two leftover items from the v3.22 CLEANUP sprint.

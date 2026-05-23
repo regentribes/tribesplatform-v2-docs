@@ -184,7 +184,7 @@ export default function AppTopBar({ onMobileNavToggle, mobileNavOpen }: {
           <Link href="/changelog" style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '0.06em', textDecoration: 'none' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink-2)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-4)')}>
-            v3.42
+            v3.43
           </Link>
         </div>
       </Link>

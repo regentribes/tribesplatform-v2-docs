@@ -181,6 +181,8 @@ export default function AppSideNav({ mobileOpen, onClose, initialRole = 'explore
   const isActive = (href: string | null) => {
     if (!href) return false
     if (href === '/dashboard') return pathname === '/dashboard'
+    // M01 (/network) also owns /u/[username] — keep the module highlighted on public profile pages.
+    if (href === '/network') return pathname.startsWith('/network') || pathname.startsWith('/u/')
     return pathname.startsWith(href)
   }
 

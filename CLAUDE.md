@@ -32,7 +32,7 @@ New members join **by invitation only** — someone already in the community sha
 - **Deploy command:** `cd web && npm run deploy:cf`
 - **Config:** `web/wrangler.jsonc`
 - **Adapter:** `@opennextjs/cloudflare` v1.19.9 (OpenNext)
-- **Current version:** v3.42 (shown under logo in `AppTopBar`)
+- **Current version:** v3.43 (shown under logo in `AppTopBar`)
 
 ---
 

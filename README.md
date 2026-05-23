@@ -53,4 +53,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.42 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 matching v2 (fuzzy skills, location proximity, travel-overlap-with-dates, regenerative goal keywords — 7 scoring dimensions instead of 4), root docs consolidated, v1 archive removed.
+🟢 **v3.43 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 shell consistency (every /network/* page now wraps in the same module sidebar + right panel as /u/[username]; M01 stays highlighted on profile pages).

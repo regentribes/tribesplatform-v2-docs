@@ -1,6 +1,6 @@
 # MyCoNet v2 — Architecture & Database Schema
 
-> Status: v3.42 LIVE | Updated: 2026-05-23
+> Status: v3.43 LIVE | Updated: 2026-05-23
 
 ---
 
