@@ -7,35 +7,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Project, Deliverable, ProjectUpdate, CollaborationAgreement, MyProposal } from './types'
 import { PILLARS, PILLAR_META, isPillar, type Pillar } from '@/core/lib/pillars'
+import { isActiveProject, isOpenForProposals, PROJECT_STATUS_META, PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+// Status label/color for the project header pill comes from PROJECT_STATUS_META.
 
-const STATUS_STYLE: Record<string, { label: string; color: string }> = {
-  active:    { label: 'Active',    color: '#22c55e' },
-  paused:    { label: 'Paused',    color: '#f59e0b' },
-  completed: { label: 'Completed', color: '#94a3b8' },
-}
-
-const AGREEMENT_STATUS: Record<string, { label: string; color: string }> = {
-  pending:   { label: 'Pending review', color: '#f59e0b' },
-  accepted:  { label: 'Accepted',       color: '#22c55e' },
-  active:    { label: 'Active',         color: '#3b82f6' },
-  rejected:  { label: 'Not accepted',   color: '#ef4444' },
-  completed: { label: 'Completed',      color: '#94a3b8' },
-}
-
-const COLLAB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  accepted:  { label: 'Accepted',  color: '#22c55e', bg: '#22c55e14' },
-  active:    { label: 'Active',    color: '#3b82f6', bg: '#3b82f614' },
-  completed: { label: 'Completed', color: '#94a3b8', bg: '#94a3b814' },
-}
-
-const TASK_STATUS: { value: string; label: string; color: string; bg: string }[] = [
-  { value: 'backlog',     label: 'Backlog',      color: 'var(--ink-4)', bg: 'var(--bg-3)' },
-  { value: 'in_progress', label: 'In progress',  color: '#4338ca',      bg: '#4338ca14' },
-  { value: 'review',      label: 'Review',       color: '#f59e0b',      bg: '#f59e0b14' },
-  { value: 'done',        label: 'Done',         color: '#22c55e',      bg: '#22c55e14' },
-]
 
 const BLOCKING_STATUSES = ['pending', 'accepted', 'active', 'completed']
 const PROPOSAL_STATUS_INFO: Record<string, { label: string; color: string; note: string }> = {
@@ -46,48 +22,15 @@ const PROPOSAL_STATUS_INFO: Record<string, { label: string; color: string; note:
   rejected:  { label: 'Not accepted',   color: '#ef4444', note: 'Your previous proposal was not accepted. You can submit a new one.' },
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function TaskStatusPill({ status, onChange }: { status: string; onChange?: (s: string) => void }) {
-  const ts = TASK_STATUS.find(s => s.value === status) ?? TASK_STATUS[0]
-  if (!onChange) {
-    return (
-      <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-        color: ts.color, background: ts.bg, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
-      }}>
-        {ts.label}
-      </span>
-    )
-  }
-  return (
-    <select
-      value={status}
-      onChange={e => onChange(e.target.value)}
-      style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-        color: ts.color, background: ts.bg, border: 'none', borderRadius: 20,
-        padding: '3px 9px', cursor: 'pointer', outline: 'none', appearance: 'none',
-        WebkitAppearance: 'none',
-      }}
-    >
-      {TASK_STATUS.map(s => (
-        <option key={s.value} value={s.value}>{s.label}</option>
-      ))}
-    </select>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProjectDetailClient({
-  project, updates, agreements, activeCollaborations,
+  project, updates, pendingProposals: initialPendingProposals,
   deliverables: initialDeliverables, myProposal: initialMyProposal, userId, userRole, isAdmin, isProjectCreator,
 }: {
   project: Project
   updates: ProjectUpdate[]
-  agreements: CollaborationAgreement[]
-  activeCollaborations: CollaborationAgreement[]
+  pendingProposals: CollaborationAgreement[]
   deliverables: Deliverable[]
   myProposal: MyProposal | null
   userId: string
@@ -97,17 +40,22 @@ export default function ProjectDetailClient({
 }) {
   const supabase = createClient()
   const router = useRouter()
-  const s = STATUS_STYLE[project.status] ?? STATUS_STYLE.active
+  const s = PROJECT_STATUS_META[project.status] ?? PROJECT_STATUS_META.backlog
 
   const canManage = isAdmin || isProjectCreator
-  const canPropose = !canManage && isJoiningOrAbove(userRole) && project.open_for_collaborators && project.status === 'active'
+  const canPropose = !canManage && isJoiningOrAbove(userRole) && project.open_for_collaborators && isOpenForProposals(project.status)
 
-  // ── Subtasks state ──────────────────────────────────────────────────────────
+  // ── Kanban state (deliverables + pending proposals as Ideas) ──────────────
   const [deliverables, setDeliverables] = useState<Deliverable[]>(initialDeliverables)
+  const [pendingProposals, setPendingProposals] = useState<CollaborationAgreement[]>(initialPendingProposals)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDue, setNewTaskDue] = useState('')
   const [addingTask, setAddingTask] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
+
+  // ── Drag-and-drop state ───────────────────────────────────────────────────
+  const [dragging, setDragging] = useState<{ kind: 'deliverable' | 'proposal'; id: string } | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   // ── Updates state ───────────────────────────────────────────────────────────
   const [updateText, setUpdateText] = useState('')
@@ -118,9 +66,6 @@ export default function ProjectDetailClient({
   const [editOpenCollab, setEditOpenCollab] = useState(project.open_for_collaborators)
   const [editCircle, setEditCircle] = useState<Pillar | ''>(isPillar(project.circle) ? project.circle : '')
   const [savingSettings, setSavingSettings] = useState(false)
-
-  // ── Agreement management (admin only) ───────────────────────────────────────
-  const [savingAgreement, setSavingAgreement] = useState<string | null>(null)
 
   // ── Proposal form ───────────────────────────────────────────────────────────
   const [myProposal, setMyProposal] = useState<MyProposal | null>(initialMyProposal)
@@ -197,6 +142,76 @@ export default function ProjectDetailClient({
     await supabase.from('deliverables').delete().eq('id', taskId)
   }
 
+  /** Accept a pending proposal: flip its status to 'accepted' and spawn a
+   * matching deliverable that lands in the backlog column. The deliverable
+   * carries from_agreement_id so we can trace the link later. */
+  async function acceptProposal(agreementId: string, targetStatus: string = 'backlog') {
+    const proposal = pendingProposals.find(p => p.id === agreementId)
+    if (!proposal) return
+
+    setPendingProposals(prev => prev.filter(p => p.id !== agreementId))
+    const optimisticDeliverable: Deliverable = {
+      id: `optimistic-${agreementId}`,
+      project_id: project.id,
+      title: (proposal.work_description ?? '').slice(0, 120) || 'Contribution',
+      status: targetStatus,
+      due_date: null,
+      assignee_id: (proposal as CollaborationAgreement & { user_id?: string }).user_id ?? null,
+      progress: 0,
+      from_agreement_id: agreementId,
+      user_profiles: proposal.user_profiles ?? null,
+    }
+    setDeliverables(prev => [...prev, optimisticDeliverable])
+
+    const { error: agreementErr } = await supabase
+      .from('collaboration_agreements')
+      .update({ status: 'accepted' })
+      .eq('id', agreementId)
+
+    if (agreementErr) {
+      setPendingProposals(prev => [proposal, ...prev])
+      setDeliverables(prev => prev.filter(d => d.id !== optimisticDeliverable.id))
+      return
+    }
+
+    const { data: newDeliverable, error: insertErr } = await supabase
+      .from('deliverables')
+      .insert({
+        project_id: project.id,
+        title: optimisticDeliverable.title,
+        status: targetStatus,
+        progress: 0,
+        assignee_id: optimisticDeliverable.assignee_id,
+        from_agreement_id: agreementId,
+      })
+      .select('id, project_id, title, status, due_date, assignee_id, progress, from_agreement_id')
+      .single()
+
+    if (insertErr || !newDeliverable) {
+      setDeliverables(prev => prev.filter(d => d.id !== optimisticDeliverable.id))
+      return
+    }
+    setDeliverables(prev => prev.map(d =>
+      d.id === optimisticDeliverable.id
+        ? { ...newDeliverable, user_profiles: proposal.user_profiles ?? null }
+        : d
+    ))
+    router.refresh()
+  }
+
+  function handleDrop(columnKey: string) {
+    if (!dragging) return
+    if (dragging.kind === 'proposal') {
+      if (columnKey === 'pending') return
+      acceptProposal(dragging.id, columnKey === 'pending' ? 'backlog' : columnKey)
+    } else {
+      if (columnKey === 'pending') return
+      updateTaskStatus(dragging.id, columnKey)
+    }
+    setDragging(null)
+    setDropTarget(null)
+  }
+
   async function postUpdate() {
     if (!updateText.trim()) return
     setPostingUpdate(true)
@@ -221,15 +236,6 @@ export default function ProjectDetailClient({
     router.refresh()
   }
 
-  async function updateAgreementStatus(agreementId: string, newStatus: string) {
-    setSavingAgreement(agreementId)
-    await supabase.from('collaboration_agreements')
-      .update({ status: newStatus })
-      .eq('id', agreementId)
-    setSavingAgreement(null)
-    router.refresh()
-  }
-
   return (
     <div className="ops-detail-root" style={{ maxWidth: 920, margin: '0 auto', padding: '48px 20px 80px' }}>
 
@@ -247,7 +253,7 @@ export default function ProjectDetailClient({
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: s.color, background: `${s.color}15`, padding: '3px 10px', borderRadius: 20 }}>
             {s.label}
           </span>
-          {project.open_for_collaborators && project.status === 'active' && (
+          {project.open_for_collaborators && isActiveProject(project.status) && (
             <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3b82f6', background: '#3b82f615', padding: '3px 10px', borderRadius: 20 }}>
               Open for collaborators
             </span>
@@ -359,14 +365,16 @@ export default function ProjectDetailClient({
         {/* ── Left column ──────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
-          {/* ── Subtasks — visible to project creator + admin ─────────────── */}
-          {canManage && (
-            <div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14 }}>
+          {/* ── Project Kanban: Ideas (proposals) + deliverables ──────────── */}
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
+              <span>
                 Subtasks · {deliverables.length}
-              </div>
+                {canManage && pendingProposals.length > 0 && ` · ${pendingProposals.length} idea${pendingProposals.length === 1 ? '' : 's'}`}
+              </span>
+            </div>
 
-              {/* Add subtask form */}
+            {canManage && (
               <div style={{
                 background: 'var(--bg-2)', border: '1px solid var(--rule)',
                 borderRadius: 10, padding: '14px 16px', marginBottom: 14,
@@ -401,150 +409,143 @@ export default function ProjectDetailClient({
                 </div>
                 {taskError && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 8, marginBottom: 0 }}>{taskError}</p>}
               </div>
+            )}
 
-              {/* Subtask list */}
-              {deliverables.length === 0 ? (
-                <div style={{ color: 'var(--ink-4)', fontSize: 13, padding: '8px 0' }}>
-                  No subtasks yet. Add the first one above.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {deliverables.map(d => (
-                    <div key={d.id} style={{
-                      background: 'var(--surface)', border: '1px solid var(--rule)',
-                      borderRadius: 9, padding: '10px 14px',
-                      display: 'flex', alignItems: 'center', gap: 12,
-                    }}>
-                      {/* Status selector */}
-                      <TaskStatusPill status={d.status} onChange={s => updateTaskStatus(d.id, s)} />
-
-                      {/* Title */}
-                      <span style={{
-                        flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: 'var(--ink)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        textDecoration: d.status === 'done' ? 'line-through' : 'none',
-                        opacity: d.status === 'done' ? 0.55 : 1,
-                      }}>
-                        {d.title}
-                      </span>
-
-                      {/* Due date */}
-                      {d.due_date && (
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
-                          {fmtDate(d.due_date)}
-                        </span>
-                      )}
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => deleteTask(d.id)}
-                        style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
-                        title="Remove subtask"
-                      >
-                        ×
-                      </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+              {PROJECT_KANBAN_COLUMNS.map(col => {
+                const isTarget = dropTarget === col.key
+                const cards = col.key === 'pending'
+                  ? (canManage ? pendingProposals : [])
+                  : deliverables.filter(d => d.status === col.key)
+                const droppable = canManage
+                return (
+                  <div
+                    key={col.key}
+                    onDragOver={(e) => {
+                      if (!droppable || !dragging) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      if (dropTarget !== col.key) setDropTarget(col.key)
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget === e.target) setDropTarget(null)
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      handleDrop(col.key)
+                    }}
+                    style={{
+                      background: isTarget ? `${col.color}10` : 'var(--bg-2)',
+                      borderRadius: 10,
+                      padding: 8,
+                      border: isTarget ? `1px dashed ${col.color}` : '1px solid transparent',
+                      transition: 'background 120ms, border-color 120ms',
+                      minHeight: 100,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{col.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>{cards.length}</span>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: col.color }} />
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* ── Subtasks read-only (non-managers can still see them) ──────── */}
-          {!canManage && deliverables.length > 0 && (
-            <div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14 }}>
-                Subtasks · {deliverables.length}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {deliverables.map(d => (
-                  <div key={d.id} style={{
-                    background: 'var(--surface)', border: '1px solid var(--rule)',
-                    borderRadius: 9, padding: '10px 14px',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                  }}>
-                    <TaskStatusPill status={d.status} />
-                    <span style={{
-                      flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--ink)',
-                      textDecoration: d.status === 'done' ? 'line-through' : 'none',
-                      opacity: d.status === 'done' ? 0.55 : 1,
-                    }}>
-                      {d.title}
-                    </span>
-                    {d.due_date && (
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
-                        {fmtDate(d.due_date)}
-                      </span>
+                    {cards.length === 0 ? (
+                      <div style={{ fontSize: 11, color: 'var(--ink-4)', padding: '8px 4px', textAlign: 'center' }}>
+                        {col.key === 'pending' && !canManage ? '—' : 'Empty'}
+                      </div>
+                    ) : col.key === 'pending' ? (
+                      cards.map(p => {
+                        const proposal = p as CollaborationAgreement
+                        const name = proposal.user_profiles?.first_name ?? proposal.user_profiles?.username ?? 'Community member'
+                        return (
+                          <div
+                            key={proposal.id}
+                            draggable={canManage}
+                            onDragStart={(e) => {
+                              if (!canManage) return
+                              e.dataTransfer.effectAllowed = 'move'
+                              e.dataTransfer.setData('text/plain', proposal.id)
+                              setDragging({ kind: 'proposal', id: proposal.id })
+                            }}
+                            onDragEnd={() => { setDragging(null); setDropTarget(null) }}
+                            style={{
+                              background: 'var(--surface)', border: '1px solid var(--rule)',
+                              borderLeft: `3px solid #3b82f6`,
+                              borderRadius: 8, padding: '10px 12px', marginBottom: 6,
+                              cursor: canManage ? 'grab' : 'default',
+                              opacity: dragging?.id === proposal.id ? 0.5 : 1,
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.45, marginBottom: 4 }}>
+                              <span style={{ color: 'var(--ink-3)' }}>Offers: </span>{proposal.work_description}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.45, marginBottom: 8 }}>
+                              <span style={{ color: 'var(--ink-3)' }}>Wants: </span>{proposal.expected_reward}
+                            </div>
+                            {canManage && (
+                              <button
+                                onClick={() => acceptProposal(proposal.id, 'backlog')}
+                                style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: 'none', background: '#22c55e', color: '#fff', cursor: 'pointer' }}
+                              >
+                                Accept →
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })
+                    ) : (
+                      cards.map(c => {
+                        const d = c as Deliverable
+                        const assignee = d.user_profiles?.first_name ?? d.user_profiles?.username ?? null
+                        return (
+                          <div
+                            key={d.id}
+                            draggable={canManage}
+                            onDragStart={(e) => {
+                              if (!canManage) return
+                              e.dataTransfer.effectAllowed = 'move'
+                              e.dataTransfer.setData('text/plain', d.id)
+                              setDragging({ kind: 'deliverable', id: d.id })
+                            }}
+                            onDragEnd={() => { setDragging(null); setDropTarget(null) }}
+                            style={{
+                              background: 'var(--surface)', border: '1px solid var(--rule)',
+                              borderRadius: 8, padding: '8px 10px', marginBottom: 6,
+                              cursor: canManage ? 'grab' : 'default',
+                              opacity: dragging?.id === d.id ? 0.5 : 1,
+                            }}
+                          >
+                            <div style={{
+                              fontSize: 12, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, marginBottom: 6,
+                              textDecoration: d.status === 'done' ? 'line-through' : 'none',
+                              opacity: d.status === 'done' ? 0.6 : 1,
+                            }}>
+                              {d.title}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+                              {assignee && <span>· {assignee}</span>}
+                              {d.due_date && <span>· {fmtDate(d.due_date)}</span>}
+                              {canManage && (
+                                <button
+                                  onClick={() => deleteTask(d.id)}
+                                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
+                                  title="Remove subtask"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
                     )}
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
-          )}
-
-          {/* ── Active collaborations — visible to everyone ────────────────── */}
-          <div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14 }}>
-              Active collaborations · {activeCollaborations.length}
-            </div>
-
-            {activeCollaborations.length === 0 ? (
-              <div style={{
-                background: 'var(--bg-2)', border: '1px solid var(--rule)',
-                borderRadius: 10, padding: '28px 20px', textAlign: 'center',
-                color: 'var(--ink-4)', fontSize: 13,
-              }}>
-                No active collaborations yet.{' '}
-                {canPropose && !hasBlockingProposal && (
-                  <button onClick={() => { setShowProposalForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }} style={{ background: 'none', border: 'none', color: 'var(--m6)', fontWeight: 600, cursor: 'pointer', fontSize: 13, padding: 0 }}>
-                    Be the first to propose →
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {activeCollaborations.map(a => {
-                  const cs = COLLAB_STATUS[a.status] ?? COLLAB_STATUS.accepted
-                  const name = a.user_profiles?.first_name ?? a.user_profiles?.username ?? 'Community member'
-                  const initial = (a.user_profiles?.first_name ?? a.user_profiles?.username ?? '?')[0].toUpperCase()
-                  return (
-                    <div key={a.id} style={{
-                      background: 'var(--surface)', border: '1px solid var(--rule)',
-                      borderRadius: 12, padding: '16px 18px',
-                      display: 'grid', gridTemplateColumns: '36px 1fr auto',
-                      gap: '0 14px', alignItems: 'start',
-                    }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                        background: 'color-mix(in srgb, var(--m6) 12%, var(--bg))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 700, color: 'var(--m6)',
-                      }}>
-                        {initial}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{name}</div>
-                        <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, color: 'var(--ink-3)' }}>Contributing: </span>
-                          {a.work_description}
-                        </div>
-                        <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
-                          <span style={{ fontWeight: 600, color: 'var(--ink-3)' }}>In exchange for: </span>
-                          {a.expected_reward}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                        color: cs.color, background: cs.bg,
-                        padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0,
-                      }}>
-                        {cs.label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </div>
 
           {/* ── Updates feed ──────────────────────────────────────────────── */}
@@ -607,9 +608,12 @@ export default function ProjectDetailClient({
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>Status</label>
                 <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ ...inputStyle, padding: '8px 12px', fontSize: 13 }}>
-                  <option value="active">Active</option>
+                  <option value="pending">Idea</option>
+                  <option value="backlog">Backlog</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="review">Review</option>
+                  <option value="done">Done</option>
                   <option value="paused">Paused</option>
-                  <option value="completed">Completed</option>
                 </select>
               </div>
               <div style={{ marginBottom: 12 }}>
@@ -645,49 +649,6 @@ export default function ProjectDetailClient({
               <button onClick={saveProjectSettings} disabled={savingSettings} style={{ background: '#4338ca', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius)', border: 'none', cursor: savingSettings ? 'not-allowed' : 'pointer', opacity: savingSettings ? 0.65 : 1 }}>
                 {savingSettings ? 'Saving…' : 'Save settings'}
               </button>
-            </div>
-
-            {/* All proposals — admin management */}
-            <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 'var(--radius)', padding: '16px' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 12 }}>
-                All proposals ({agreements.length})
-              </div>
-              {agreements.length === 0 ? (
-                <p style={{ color: 'var(--ink-4)', fontSize: 12 }}>No proposals yet.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {agreements.map(a => {
-                    const as = AGREEMENT_STATUS[a.status] ?? AGREEMENT_STATUS.pending
-                    const name = a.user_profiles?.first_name ?? a.user_profiles?.username ?? 'User'
-                    return (
-                      <div key={a.id} style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 'var(--radius)', padding: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>{name}</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: as.color, background: `${as.color}15`, padding: '1px 7px', borderRadius: 20 }}>{as.label}</span>
-                        </div>
-                        <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 4px', lineHeight: 1.5 }}>
-                          <strong style={{ color: 'var(--ink-2)' }}>Will do:</strong> {a.work_description}
-                        </p>
-                        <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
-                          <strong style={{ color: 'var(--ink-2)' }}>Expects:</strong> {a.expected_reward}
-                        </p>
-                        {a.status === 'pending' && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => updateAgreementStatus(a.id, 'accepted')} disabled={savingAgreement === a.id} style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 'var(--radius)', border: 'none', background: '#22c55e', color: '#fff', cursor: 'pointer' }}>Accept</button>
-                            <button onClick={() => updateAgreementStatus(a.id, 'rejected')} disabled={savingAgreement === a.id} style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--rule)', background: 'var(--bg-2)', color: 'var(--ink-3)', cursor: 'pointer' }}>Decline</button>
-                          </div>
-                        )}
-                        {a.status === 'accepted' && (
-                          <button onClick={() => updateAgreementStatus(a.id, 'active')} disabled={savingAgreement === a.id} style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 'var(--radius)', border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer' }}>Mark active</button>
-                        )}
-                        {a.status === 'active' && (
-                          <button onClick={() => updateAgreementStatus(a.id, 'completed')} disabled={savingAgreement === a.id} style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 'var(--radius)', border: 'none', background: '#94a3b8', color: '#fff', cursor: 'pointer' }}>Mark complete</button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
 
           </div>

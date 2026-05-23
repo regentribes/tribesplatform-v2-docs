@@ -2,6 +2,7 @@ import { createClient } from '@/core/lib/supabase/server'
 import OpsClient from '@/modules/m07-ops/OpsClient'
 import { isOpsAdmin } from '@/core/lib/roles'
 import { promoteToMemberIfEligible } from '@/core/lib/promotions'
+import { isActiveProject } from '@/core/lib/project-status'
 
 export default async function OpsPage() {
   const supabase = await createClient()
@@ -60,7 +61,7 @@ export default async function OpsPage() {
   }))
 
   const allProjects = projects ?? []
-  const activeCount = allProjects.filter(p => p.status === 'active').length
+  const activeCount = allProjects.filter(p => isActiveProject(p.status)).length
   const deliverableCount = deliverables.length
   const doneCount = deliverables.filter(d => d.status === 'done').length
 

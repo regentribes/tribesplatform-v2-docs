@@ -4,8 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/core/lib/supabase/client'
-import { fmtDate } from '@/core/lib/format'
 import { isPillar, PILLAR_META } from '@/core/lib/pillars'
+import { PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
 import { DeliverablesTab } from './DeliverablesTab'
 import { UpdatesTab } from './UpdatesTab'
 import type { Project, Deliverable, ProjectUpdate } from './types'
@@ -27,54 +27,23 @@ interface OpsClientProps {
   sprintName: string | null
 }
 
-/** Determines whether the current user can move a deliverable (drag it
- * between Kanban columns). The hierarchy is:
- *   - admin                    → can move any deliverable
- *   - project_lead             → can move deliverables in projects they own
- *   - circle_lead              → can move deliverables in projects in circles they lead
+/** Whether the current user can drag a project between Kanban columns.
+ *   - admin                    → any project
+ *   - project_lead             → projects they created or lead
+ *   - circle_lead              → projects in circles they lead
  *   - member / joining / etc.  → cannot move
  */
-function canMoveDeliverable(
-  d: Deliverable,
-  projects: Project[],
+function canMoveProject(
+  p: Project,
   userId: string | null,
   userRole: string,
   leadCircles: string[],
 ): boolean {
   if (!userId) return false
   if (userRole === 'admin') return true
-  const project = projects.find(p => p.id === d.project_id)
-  if (!project) return false
-  if (userRole === 'project_lead' && (project.created_by === userId || project.lead_user_id === userId)) return true
-  if (userRole === 'circle_lead' && project.circle && leadCircles.includes(project.circle)) return true
-  // circle_lead is also a circle_admin role; they can manage projects in their circles
+  if (userRole === 'project_lead' && (p.created_by === userId || p.lead_user_id === userId)) return true
+  if (userRole === 'circle_lead' && p.circle && leadCircles.includes(p.circle)) return true
   return false
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const PROJECT_COLORS = [
-  'var(--m1)',
-  'var(--m4)',
-  'var(--m5)',
-  'var(--m6)',
-  'var(--m7)',
-  'var(--m8)',
-  'var(--m9)',
-]
-
-const KANBAN_COLUMNS: { key: string; label: string; color: string }[] = [
-  { key: 'backlog',     label: 'Backlog',      color: 'var(--ink-4)' },
-  { key: 'in_progress', label: 'In progress',  color: 'var(--m7)' },
-  { key: 'review',      label: 'Review',       color: '#f59e0b' },
-  { key: 'done',        label: 'Done',         color: 'var(--m5)' },
-]
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function projectColor(projectId: string, allProjects: Project[]): string {
-  const idx = allProjects.findIndex(p => p.id === projectId)
-  return PROJECT_COLORS[(idx >= 0 ? idx : 0) % PROJECT_COLORS.length]
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -126,63 +95,41 @@ function StatCard({
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 
-function ProgressBar({ progress, color }: { progress: number; color: string }) {
-  return (
-    <div style={{
-      height: 6,
-      borderRadius: 999,
-      background: 'var(--bg-3)',
-      overflow: 'hidden',
-      margin: '6px 0',
-    }}>
-      <div style={{
-        width: `${Math.min(100, Math.max(0, progress * 100))}%`,
-        height: '100%',
-        background: color,
-        borderRadius: 999,
-      }} />
-    </div>
-  )
-}
+// ─── Project Kanban Card ──────────────────────────────────────────────────────
 
-// ─── Kanban Card ──────────────────────────────────────────────────────────────
-
-function KanbanCard({
-  deliverable,
-  projectId,
-  projectTitle,
-  projectCircle,
-  color,
+function ProjectKanbanCard({
+  project,
+  subtaskCount,
+  doneCount,
   canMove,
   onDragStart,
   onDragEnd,
   isDragging,
 }: {
-  deliverable: Deliverable
-  projectId: string
-  projectTitle: string
-  projectCircle: string | null | undefined
-  color: string
+  project: Project
+  subtaskCount: number
+  doneCount: number
   canMove: boolean
   onDragStart?: (id: string) => void
   onDragEnd?: () => void
   isDragging?: boolean
 }) {
-  const circleMeta = isPillar(projectCircle) ? PILLAR_META[projectCircle] : null
+  const circleMeta = isPillar(project.circle) ? PILLAR_META[project.circle] : null
+  const accent = circleMeta?.color ?? 'var(--m7)'
   return (
-    <Link href={`/ops/${projectId}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
+    <Link href={`/ops/${project.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
       <div
         draggable={canMove}
         onDragStart={canMove ? (e) => {
           e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', deliverable.id)
-          onDragStart?.(deliverable.id)
+          e.dataTransfer.setData('text/plain', project.id)
+          onDragStart?.(project.id)
         } : undefined}
         onDragEnd={canMove ? () => onDragEnd?.() : undefined}
         style={{
           background: 'var(--surface)',
           border: '1px solid var(--rule)',
-          borderLeft: `3px solid ${color}`,
+          borderLeft: `3px solid ${accent}`,
           borderRadius: 8,
           padding: '10px 12px',
           boxShadow: 'var(--shadow-sm)',
@@ -191,46 +138,40 @@ function KanbanCard({
         }}
       >
         <div style={{
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: 600,
           marginBottom: 6,
           color: 'var(--ink)',
           lineHeight: 1.35,
         }}>
-          {deliverable.title}
+          {project.title}
         </div>
         {circleMeta && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: circleMeta.color, background: `${circleMeta.color}15`, padding: '1px 6px', borderRadius: 20, marginBottom: 6 }}>
             {circleMeta.emoji} {circleMeta.label}
           </div>
         )}
-        {deliverable.status === 'in_progress' && deliverable.progress != null && (
-          <ProgressBar progress={deliverable.progress} color={color} />
+        {project.description && (
+          <p style={{
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            margin: '0 0 6px',
+            lineHeight: 1.4,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>
+            {project.description}
+          </p>
         )}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          fontFamily: 'var(--mono)',
+          fontSize: 10,
+          color: 'var(--ink-4)',
           marginTop: 4,
         }}>
-          <span style={{
-            fontFamily: 'var(--mono)',
-            fontSize: 10,
-            color: 'var(--ink-3)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: '60%',
-          }}>
-            {projectTitle}
-          </span>
-          <span style={{
-            fontFamily: 'var(--mono)',
-            fontSize: 10,
-            color: 'var(--ink-3)',
-          }}>
-            {fmtDate(deliverable.due_date)}
-          </span>
+          {subtaskCount === 0 ? 'no subtasks' : `${doneCount}/${subtaskCount} done`}
         </div>
       </div>
     </Link>
@@ -255,59 +196,46 @@ export default function OpsClient({
 }: OpsClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'board' | 'deliverables' | 'updates'>('board')
-  const [pendingProjects, setPendingProjects] = useState(projects.filter(p => p.status === 'pending'))
-  const [activating, setActivating] = useState<string | null>(null)
-  const [deliverables, setDeliverables] = useState<Deliverable[]>(initialDeliverables)
+  const [boardProjects, setBoardProjects] = useState<Project[]>(projects)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
-  async function moveDeliverable(deliverableId: string, newStatus: string) {
-    const d = deliverables.find(x => x.id === deliverableId)
-    if (!d || d.status === newStatus) return
-    if (!canMoveDeliverable(d, projects, userId, userRole, leadCircles)) return
+  async function moveProject(projectId: string, newStatus: string) {
+    const p = boardProjects.find(x => x.id === projectId)
+    if (!p || p.status === newStatus) return
+    if (!canMoveProject(p, userId, userRole, leadCircles)) return
 
-    setDeliverables(prev => prev.map(x => x.id === deliverableId ? { ...x, status: newStatus } : x))
+    setBoardProjects(prev => prev.map(x => x.id === projectId ? { ...x, status: newStatus } : x))
     const supabase = createClient()
-    const { error } = await supabase.from('deliverables').update({ status: newStatus }).eq('id', deliverableId)
+    const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
     if (error) {
-      setDeliverables(prev => prev.map(x => x.id === deliverableId ? { ...x, status: d.status } : x))
+      setBoardProjects(prev => prev.map(x => x.id === projectId ? { ...x, status: p.status } : x))
     } else {
       router.refresh()
     }
   }
 
-  async function handleActivate(projectId: string) {
-    setActivating(projectId)
-    const supabase = createClient()
-    await supabase.from('projects').update({ status: 'active' }).eq('id', projectId)
-    setPendingProjects(prev => prev.filter(p => p.id !== projectId))
-    setActivating(null)
-  }
-
-  async function handleDecline(projectId: string) {
-    setActivating(projectId)
-    const supabase = createClient()
-    await supabase.from('projects').update({ status: 'paused' }).eq('id', projectId)
-    setPendingProjects(prev => prev.filter(p => p.id !== projectId))
-    setActivating(null)
-  }
-
   // Sprint info
   const sprintLabel = sprintName ?? 'Community Projects'
-  const onTrackCount = deliverables.filter(d => d.status === 'in_progress').length
-  const totalProjects = projects.filter(p => p.status === 'active').length
+  const onTrackCount = initialDeliverables.filter(d => d.status === 'in_progress').length
+  const totalProjects = boardProjects.filter(p => ['backlog', 'in_progress', 'review'].includes(p.status)).length
 
-  // Kanban: group deliverables by status
+  // Subtask counts per project for the card footer
+  const subtasksByProject = new Map<string, { total: number; done: number }>()
+  for (const d of initialDeliverables) {
+    const e = subtasksByProject.get(d.project_id) ?? { total: 0, done: 0 }
+    e.total += 1
+    if (d.status === 'done') e.done += 1
+    subtasksByProject.set(d.project_id, e)
+  }
+
+  // Kanban: group projects by status (paused projects don't appear on the board)
   const grouped = Object.fromEntries(
-    KANBAN_COLUMNS.map(col => [
+    PROJECT_KANBAN_COLUMNS.map(col => [
       col.key,
-      deliverables.filter(d => d.status === col.key),
+      boardProjects.filter(p => p.status === col.key),
     ])
   )
-
-  // Projects that have zero deliverables — always show these as cards in "In progress"
-  const projectsWithDeliverables = new Set(deliverables.map(d => d.project_id))
-  const projectsNoDeliverables = projects.filter(p => p.status === 'active' && !projectsWithDeliverables.has(p.id))
 
   // Tab styles
   function tabStyle(tab: typeof activeTab): React.CSSProperties {
@@ -460,62 +388,6 @@ export default function OpsClient({
         />
       </div>
 
-      {/* ── Pending Proposals (admin only) ───────────────────────────────── */}
-      {isAdmin && pendingProjects.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{
-            fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: 'var(--m7)', marginBottom: 10,
-          }}>
-            Pending proposals · {pendingProjects.length}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pendingProjects.map(p => (
-              <div key={p.id} style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                padding: '14px 18px', borderRadius: 10,
-                border: '1px solid color-mix(in srgb, var(--m7) 25%, var(--rule))',
-                background: 'color-mix(in srgb, var(--m7) 4%, var(--surface))',
-                flexWrap: 'wrap',
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', marginBottom: 2 }}>{p.title}</div>
-                  {p.description && (
-                    <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.4 }}>{p.description}</div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <button
-                    onClick={() => handleDecline(p.id)}
-                    disabled={activating === p.id}
-                    style={{
-                      fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 7,
-                      border: '1px solid var(--rule)', background: 'var(--surface)',
-                      color: 'var(--ink-3)', cursor: 'pointer',
-                    }}
-                  >
-                    Decline
-                  </button>
-                  <button
-                    onClick={() => handleActivate(p.id)}
-                    disabled={activating === p.id}
-                    style={{
-                      fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 7,
-                      border: 'none', background: 'var(--m7)',
-                      color: '#fff', cursor: 'pointer',
-                      opacity: activating === p.id ? 0.6 : 1,
-                    }}
-                  >
-                    {activating === p.id ? 'Activating…' : 'Activate'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Tab Row ───────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
@@ -538,10 +410,10 @@ export default function OpsClient({
       {activeTab === 'board' && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: 12,
         }}>
-          {KANBAN_COLUMNS.map(col => {
+          {PROJECT_KANBAN_COLUMNS.map(col => {
             const cards = grouped[col.key] ?? []
             const isTarget = dropTarget === col.key
             return (
@@ -559,7 +431,7 @@ export default function OpsClient({
                 onDrop={(e) => {
                   e.preventDefault()
                   const id = e.dataTransfer.getData('text/plain')
-                  if (id) moveDeliverable(id, col.key)
+                  if (id) moveProject(id, col.key)
                   setDropTarget(null)
                   setDraggingId(null)
                 }}
@@ -593,7 +465,6 @@ export default function OpsClient({
                     }}>
                       {cards.length}
                     </span>
-                    {/* Color dot */}
                     <div style={{
                       width: 6,
                       height: 6,
@@ -615,52 +486,23 @@ export default function OpsClient({
                     Empty
                   </div>
                 ) : (
-                  cards.map(d => {
-                    const proj = projects.find(p => p.id === d.project_id)
-                    const color = projectColor(d.project_id, projects)
-                    const canMove = canMoveDeliverable(d, projects, userId, userRole, leadCircles)
+                  cards.map(p => {
+                    const stats = subtasksByProject.get(p.id) ?? { total: 0, done: 0 }
+                    const canMove = canMoveProject(p, userId, userRole, leadCircles)
                     return (
-                      <KanbanCard
-                        key={d.id}
-                        deliverable={d}
-                        projectId={d.project_id}
-                        projectTitle={proj?.title ?? '—'}
-                        projectCircle={proj?.circle ?? null}
-                        color={color}
+                      <ProjectKanbanCard
+                        key={p.id}
+                        project={p}
+                        subtaskCount={stats.total}
+                        doneCount={stats.done}
                         canMove={canMove}
                         onDragStart={(id) => setDraggingId(id)}
                         onDragEnd={() => { setDraggingId(null); setDropTarget(null) }}
-                        isDragging={draggingId === d.id}
+                        isDragging={draggingId === p.id}
                       />
                     )
                   })
                 )}
-
-                {/* Projects with no deliverables — always pinned to In Progress */}
-                {col.key === 'in_progress' && projectsNoDeliverables.map(p => {
-                  const color = projectColor(p.id, projects)
-                  return (
-                    <Link key={p.id} href={`/ops/${p.id}`} style={{ textDecoration: 'none' }}>
-                      <div style={{
-                        background: 'var(--surface)',
-                        border: '1px solid var(--rule)',
-                        borderLeft: `3px solid ${color}`,
-                        borderRadius: 8,
-                        padding: '10px 12px',
-                        marginBottom: 8,
-                        boxShadow: 'var(--shadow-sm)',
-                        cursor: 'pointer',
-                      }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
-                          {p.title}
-                        </div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>
-                          no deliverables yet
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
               </div>
             )
           })}
@@ -669,7 +511,7 @@ export default function OpsClient({
 
       {/* ── Deliverables Tab ──────────────────────────────────────────────── */}
       {activeTab === 'deliverables' && (
-        <DeliverablesTab deliverables={deliverables} projects={projects} />
+        <DeliverablesTab deliverables={initialDeliverables} projects={boardProjects} />
       )}
 
       {/* ── Updates Tab ───────────────────────────────────────────────────── */}

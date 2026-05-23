@@ -10,7 +10,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const [profileRes, projectRes, updatesRes, allAgreementsRes, activeAgreementsRes, deliverablesRes, myProposalRes] = await Promise.all([
+  const [profileRes, projectRes, updatesRes, pendingProposalsRes, deliverablesRes, myProposalRes] = await Promise.all([
     supabase.from('user_profiles').select('role, first_name').eq('id', user.id).maybeSingle(),
     supabase.from('projects').select('*, created_by, lead_user_id').eq('id', id).single(),
     supabase.from('project_updates')
@@ -18,16 +18,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       .eq('project_id', id)
       .order('created_at', { ascending: false }),
     supabase.from('collaboration_agreements')
-      .select('id, work_description, expected_reward, status, created_at, user_profiles(first_name, username)')
+      .select('id, user_id, work_description, expected_reward, conditions, status, created_at, user_profiles(first_name, username)')
       .eq('project_id', id)
-      .order('created_at', { ascending: false }),
-    supabase.from('collaboration_agreements')
-      .select('id, work_description, expected_reward, status, created_at, user_profiles(first_name, username)')
-      .eq('project_id', id)
-      .in('status', ['accepted', 'active', 'completed'])
+      .eq('status', 'pending')
       .order('created_at', { ascending: false }),
     supabase.from('deliverables')
-      .select('id, project_id, title, status, due_date, assignee_id, progress')
+      .select('id, project_id, title, status, due_date, assignee_id, progress, from_agreement_id, user_profiles!deliverables_assignee_id_fkey(first_name, username)')
       .eq('project_id', id)
       .order('created_at', { ascending: true }),
     supabase.from('collaboration_agreements')
@@ -47,9 +43,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     <ProjectDetailClient
       project={project}
       updates={(updatesRes.data ?? []) as unknown as ProjectUpdate[]}
-      agreements={isAdmin ? ((allAgreementsRes.data ?? []) as unknown as CollaborationAgreement[]) : []}
-      activeCollaborations={(activeAgreementsRes.data ?? []) as unknown as CollaborationAgreement[]}
-      deliverables={deliverablesRes.data ?? []}
+      pendingProposals={(pendingProposalsRes.data ?? []) as unknown as CollaborationAgreement[]}
+      deliverables={(deliverablesRes.data ?? []) as unknown as import('@/modules/m07-ops/types').Deliverable[]}
       myProposal={myProposalRes.data ?? null}
       userId={user.id}
       userRole={profileRes.data?.role ?? 'explorer'}

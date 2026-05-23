@@ -30,6 +30,8 @@ export interface Deliverable {
   assignee_id: string | null
   progress: number | null
   assignee_username?: string | null
+  from_agreement_id?: string | null
+  user_profiles?: { first_name: string | null; username: string | null } | null
 }
 
 export interface ProjectUpdate {

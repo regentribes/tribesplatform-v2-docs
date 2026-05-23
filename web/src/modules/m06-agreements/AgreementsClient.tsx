@@ -219,7 +219,7 @@ export default function AgreementsClient({
 
   // Filter logic
   const myProjectIds = new Set(myAgreements.map(a => a.project_id))
-  const openProjects = projects.filter(p => p.status === 'active' && p.open_for_collaborators)
+  const openProjects = projects.filter(p => ['backlog', 'in_progress', 'review'].includes(p.status) && p.open_for_collaborators)
   const mineProjects = projects.filter(p => myProjectIds.has(p.id))
   const filteredProjects =
     filter === 'open'
