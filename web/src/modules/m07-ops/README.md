@@ -1,89 +1,117 @@
 # M07 — Operations
 
-Active community projects with deliverables, sprint tracking, and update posts. Any member can browse projects and see collaborations. Project creators and admins can manage subtasks, post updates, and review proposals.
+The community's project management system. Built around a unified five-column Kanban — the same mental model on both the main board (where the cards are *projects*) and on each project's detail page (where the cards are *deliverables*, with pending collaboration proposals occupying the leftmost column as Ideas).
+
+```
+Ideas  →  Backlog  →  In progress  →  Review  →  Done
+```
 
 ## Routes
 
 | Route | File |
 |-------|------|
-| `/ops` | `app/ops/page.tsx` → `OpsClient` |
-| `/ops/new` | `app/ops/new/page.tsx` → `NewProjectClient` |
-| `/ops/[id]` | `app/ops/[id]/page.tsx` → `ProjectDetailClient` |
+| `/ops` | `app/ops/page.tsx` → `OpsClient` (Project Kanban) |
+| `/ops/new` | `app/ops/new/page.tsx` → `NewProjectClient` (admin direct-create) |
+| `/ops/[id]` | `app/ops/[id]/page.tsx` → `ProjectDetailClient` (per-project Kanban) |
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `OpsClient.tsx` | Board view with Kanban columns, stat cards, pending proposals panel (admin), and tab switcher |
-| `DeliverablesTab.tsx` | Table view of all deliverables across projects — extracted tab component |
-| `UpdatesTab.tsx` | Timeline view of all project updates — extracted tab component |
-| `NewProjectClient.tsx` | Admin form to create a new project directly (without proposal flow) |
-| `ProjectDetailClient.tsx` | Full project view — subtasks, active collaborations, updates, admin settings panel |
+| `OpsClient.tsx` | Main board with three tabs: **Board** (project Kanban), **Deliverables** (table across all projects), **Updates** (timeline). |
+| `ProjectDetailClient.tsx` | Per-project page — header + circle badge + settings (admin) + 5-column Kanban + updates feed. |
+| `NewProjectClient.tsx` | Admin direct-create form (sets initial status to `pending`). |
+| `DeliverablesTab.tsx` | Table view of all deliverables across all projects. |
+| `UpdatesTab.tsx` | Timeline of all project updates across all projects. |
+| `types.ts` | Shared types — `Project`, `ProjectSummary`, `Deliverable`, `ProjectUpdate`, `CollaborationAgreement`, `MyProposal`. |
 
-## Database tables
+## The unified Kanban model
 
-| Table | Access |
-|-------|--------|
-| `projects` | Read/write — project records (`title`, `description`, `status`, `created_by`, `lead_user_id`) |
-| `deliverables` | Read/write — subtasks with `title`, `status`, `due_date`, `progress` |
-| `project_updates` | Read/write — freeform status posts linked to a project |
-| `collaboration_agreements` | Read — agreements linked to a project (two queries: all for admin, active-only for everyone) |
+Both the main board and project detail share the same five columns, defined once in `@/core/lib/project-status`:
 
-## Role gating and permissions
+| Column | What lives there |
+|--------|------------------|
+| **Ideas** | On main board: projects in `pending` status (newly proposed via M06, not yet activated).<br>On project detail: pending collaboration proposals (visible to admin / project creator only). |
+| **Backlog** | Active work that hasn't started yet. |
+| **In progress** | Work underway. |
+| **Review** | Done by the contributor, awaiting sign-off. |
+| **Done** | Finished. |
 
-| Who | Can do |
-|-----|--------|
-| Any logged-in user | Browse `/ops`, click into any project, read subtasks and active collaborations |
-| Project creator (`created_by` or `lead_user_id`) | Add/update/delete subtasks, post project updates |
-| `circle_lead` / `project_lead` / `admin` (`isOpsAdmin`) | Everything above + project settings, activate/decline pending proposals, accept/reject agreement proposals |
-
-`canManage = isAdmin || isProjectCreator` inside `ProjectDetailClient`.
-
-Role checks use `isOpsAdmin(role)` from `@/core/lib/roles`.
-
-## Project detail page (`/ops/[id]`)
-
-The page runs **five parallel queries**:
-1. User profile (role check)
-2. Project row (includes `created_by` and `lead_user_id`)
-3. Project updates
-4. All agreements — admin management panel (sent only to admins)
-5. Active agreements (`accepted`, `active`, `completed`) — visible to everyone
-6. Deliverables for the project
-
-`ProjectDetailClient` receives `isAdmin` and `isProjectCreator` and renders accordingly.
-
-## Subtask management (project creator + admin)
-
-- Subtasks live in the `deliverables` table (RLS: any authenticated user can read/write)
-- The add form takes a title (required) and an optional due date
-- Status dropdown is an inline `<select>` with optimistic updates — no reload
-- Statuses: `backlog` → `in_progress` → `review` → `done`
-- Completed tasks are shown struck-through and dimmed; all others see them in read-only pill form
+A sixth state `paused` exists in the schema but does not appear on the board.
 
 ## Project status flow
 
 ```
-pending   →  active  →  paused | completed
-(proposed)   (admin activates)
+pending  →  backlog  →  in_progress  →  review  →  done
+   ↑           ↓
+   └── (paused — off-board)
 ```
 
-Pending projects are proposed via `NewProjectModal` in M06 Agreements or by admins directly via `/ops/new`. Admins see a **Pending proposals** panel on the `/ops` board to activate or decline.
+- A project starts in `pending` when proposed via M06's "Propose a new project" modal or when an admin creates it via `/ops/new`.
+- Dragging a project from **Ideas → Backlog** on the main board accepts it (or the agreement flow handles activation).
+- From there, anyone with permission to move it drags it rightward as it advances.
 
-## Kanban board
+## Database tables
 
-Cards on the Ops board are clickable links to `/ops/[id]`. Projects with no deliverables appear in the **In Progress** column as project-level cards.
+| Table | Notes |
+|-------|-------|
+| `projects` | `status` ∈ `pending | backlog | in_progress | review | done | paused`. `circle` text (one of the 5 pillars from `@/core/lib/pillars`). `created_by`, `lead_user_id` used for permission checks. |
+| `deliverables` | `status` ∈ `backlog | in_progress | review | done`. `assignee_id` is the contributor. `from_agreement_id` (nullable) links back to the proposal that spawned this deliverable, if any. |
+| `project_updates` | Freeform timeline posts per project. |
+| `collaboration_agreements` | Proposals. `status='pending'` rows appear in the Ideas column on project detail. |
+
+## Permissions (drag-and-drop)
+
+The same gate applies on both Kanban surfaces, defined as `canMoveProject()` / `canManage`:
+
+| Role | Main board (project cards) | Project detail (proposals + deliverables) |
+|------|---------------------------|------------------------------------------|
+| `admin` | Any project | Any card |
+| `project_lead` | Projects they `created_by` or `lead_user_id` | Their own projects' cards |
+| `circle_lead` | Projects whose `circle` is in their `lead_circles` | Their circle's projects' cards |
+| `member` and below | Read only — cards are still clickable links | Read only |
+
+## The proposal-to-deliverable flow
+
+When an admin / project creator drags a card from **Ideas → Backlog** (or clicks the **Accept →** button on the proposal card), `acceptProposal()` in `ProjectDetailClient.tsx`:
+
+1. Flips the agreement's `status` to `'accepted'`.
+2. Inserts a new row in `deliverables` with `title` derived from the agreement's `work_description`, `assignee_id` set to the proposer, and `from_agreement_id` linking back.
+3. Optimistically removes the proposal card from Ideas and adds the new deliverable card to the target column.
+
+Existing accepted / active / completed agreements from before this flow was added were backfilled into `deliverables` by migration, so they appear in the Kanban automatically.
+
+## Circles
+
+Every project belongs to one of five pillar circles (or none): **ecology · hardware · humanware · economy · tech**. Defined in `@/core/lib/pillars`. The circle drives:
+
+- The badge shown on the project card and header.
+- The colored left-border accent on Kanban cards (when set).
+- The circle-lead permission check above.
+
+Admins set lead-circle assignments at `/admin/users`.
+
+## Server-side data fetching
+
+`app/ops/page.tsx` fetches projects (with `circle`, `created_by`, `lead_user_id`), all deliverables (for the Deliverables tab and the per-card subtask progress counter), recent updates, the current user's role, and their `lead_circles`. Counts (active, deliverables, done, at-risk) are derived server-side.
+
+`app/ops/[id]/page.tsx` fetches the single project, its updates, its pending proposals (only used by admin / project creator), its deliverables joined to the assignee's `user_profiles`, and the current user's own proposal (if any) for the inline propose-collaboration form.
 
 ## How to work on this module
 
 ```bash
 cd web && npm run dev
-# http://localhost:3000/ops             — board view (all users)
-# http://localhost:3000/ops/[id]        — project detail (all users)
-# http://localhost:3000/ops/new         — admin only
+# http://localhost:3000/ops             — Project Kanban (everyone)
+# http://localhost:3000/ops/[id]        — Per-project Kanban + Ideas column
+# http://localhost:3000/ops/new         — Admin direct-create
 ```
 
 To add a new deliverable field (e.g., `priority`):
-1. Add the column to the `deliverables` table via a Supabase migration
-2. Update the add form and list rendering in `ProjectDetailClient.tsx`
-3. Update `DeliverablesTab.tsx` if it should appear in the table view
+1. Migrate the `deliverables` table via Supabase.
+2. Extend the `Deliverable` interface in `types.ts`.
+3. Update the add-subtask form in `ProjectDetailClient.tsx` and the table in `DeliverablesTab.tsx`.
+
+To add a new project status:
+1. Update the `projects_status_check` constraint via Supabase migration.
+2. Add the new key to `PROJECT_KANBAN_COLUMNS` / `PROJECT_STATUS_META` in `@/core/lib/project-status`.
+3. The Kanban renders dynamically from those constants — no further UI changes needed.

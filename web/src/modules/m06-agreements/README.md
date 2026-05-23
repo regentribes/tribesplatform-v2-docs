@@ -55,7 +55,17 @@ If an active (pending/accepted/active/completed) proposal already exists for the
 
 ## Proposing a new project
 
-The **"+ Propose new project"** button opens `NewProjectModal`, which inserts a `projects` row with `status: 'pending'`. Admins see pending projects in the Operations board and can activate or decline them there.
+The **"+ Propose new project"** button opens `NewProjectModal`, which inserts a `projects` row with `status: 'pending'` and an optional `circle` (one of the 5 pillars — see `@/core/lib/pillars`). It lands in the **Ideas** column on the M07 Operations Kanban, where an admin (or any user with permission) can drag it to **Backlog** to activate it.
+
+## What happens when a proposal is accepted
+
+Acceptance no longer just flips a status — it spawns work. Inside M07, when an admin or project creator drags a pending proposal from the project's **Ideas** column to **Backlog** (or clicks the **Accept →** button on the card):
+
+1. The agreement's `status` flips to `'accepted'`.
+2. A new row is inserted into `deliverables` with `title` derived from the agreement's `work_description`, `assignee_id` set to the proposer, and `from_agreement_id` linking back to the agreement.
+3. From that point on, the work moves through the Kanban as a deliverable — see [M07's README](../m07-ops/README.md) for the Kanban flow.
+
+This means the M06 "active collaborations" view is gone — accepted proposals show up as deliverables in M07. The acceptance is still recorded in `collaboration_agreements` for history.
 
 ## How to work on this module
 

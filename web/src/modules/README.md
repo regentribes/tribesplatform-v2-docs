@@ -11,10 +11,11 @@ Each module is an independently workable feature of the MyCoNet platform. You ca
 | `m04-blueprint/` | M04 | `/blueprint` | Community planning wizard with AI scan | Live |
 | `m05-join/` | M05 | `/join` | Onboarding flow, application, role roadmap | Live |
 | `m06-agreements/` | M06 | `/agreements` | Collaboration proposals between members and projects | Live |
-| `m07-ops/` | M07 | `/ops` | Project board with subtasks and sprint tracking | Live |
+| `m07-ops/` | M07 | `/ops` | Five-column Project Kanban with drag-and-drop and proposal-to-deliverable flow | Live |
 | `m08-contributions/` | M08 | `/contributions` | Achievement badges and contribution history | Live |
 | `m09-governance/` | M09 | `/governance` | Proposals, voting, and decision layers | Live |
 | `home/` | — | `/home` | Public and member-facing community landing page | Live |
+| `admin/` | — | `/admin/users` | Admin-only user editor (role + lead_circles) | Live |
 
 M02 (Neighborhood Directory) and M03 (Resources) are hosted externally and not in this codebase.
 

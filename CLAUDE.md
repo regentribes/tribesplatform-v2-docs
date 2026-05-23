@@ -1,6 +1,6 @@
 # MyCoNet v2 — Claude Code Context
 
-Read this first. It gives you everything you need to work effectively on this project.
+Read this first. It gives an AI coding agent (or a fresh contributor) everything needed to work effectively on this project.
 
 ---
 
@@ -14,12 +14,12 @@ New members join **by invitation only** — someone already in the community sha
 
 | Role | How they get it | What they can access |
 |---|---|---|
-| `explorer` | Invited → creates account | /home explainer, Blueprint (M04), browse member profiles (M01) |
-| `joining` | Completes Module 5 (Join onboarding) | Everything above + their own profile editing |
-| `resident` | Signs agreements in Module 6 | Everything above + Operations (M07), Contributions (M08), can vote in Governance (M09) |
-| `circle_lead` | Assigned by admin | Resident access + can edit their circle's sections in Blueprint (M04) |
-| `project_lead` | Assigned by admin | Resident access + can manage members, see admin views |
-| `admin` | Assigned directly | Full access — edit entire Blueprint, manage roles, generate invite links |
+| `explorer` | Invited → creates account | `/home` explainer, Blueprint (M04), browse member profiles (M01) |
+| `joining` | Completes M05 Join onboarding | Above + can edit profile, propose collaboration on projects, propose new projects |
+| `member` | First accepted agreement OR active project (auto-promotion) | Above + vote in Governance (M09), earn contribution points, full Network matching |
+| `project_lead` | Assigned by admin | Member access + can manage all aspects of their own projects (drag any of their projects on the Kanban) |
+| `circle_lead` | Assigned by admin, plus `lead_circles` set on `/admin/users` | Member access + can manage Blueprint / Join / Agreements + can drag any project in their assigned circles on the Kanban |
+| `admin` | Assigned directly | Full edit access everywhere |
 
 ---
 
@@ -27,10 +27,12 @@ New members join **by invitation only** — someone already in the community sha
 
 - **Platform:** Cloudflare Workers (NOT Vercel — migrated due to 60s timeout incompatibility with MiniMax M2.7)
 - **Live URL:** https://myconet.correa-oscar11.workers.dev
+- **Worker name:** `myconet`
+- **GitHub:** https://github.com/regentribes/tribesplatform-v2-docs (single branch: `master`)
 - **Deploy command:** `cd web && npm run deploy:cf`
 - **Config:** `web/wrangler.jsonc`
 - **Adapter:** `@opennextjs/cloudflare` v1.19.9 (OpenNext)
-- **Current version:** v3.01 (shown under logo in AppTopBar)
+- **Current version:** v3.41 (shown under logo in `AppTopBar`)
 
 ---
 
@@ -39,69 +41,86 @@ New members join **by invitation only** — someone already in the community sha
 | Layer | Choice |
 |-------|--------|
 | Framework | Next.js 16.2.6 (App Router) |
-| Database / Auth | Supabase |
+| Database / Auth | Supabase (project: `vzgoulsqmhvhbjhzlzkf`, eu-west-1) |
 | Hosting | Cloudflare Workers via OpenNext |
-| AI model | MiniMax M2.7 (reasoning model) — Blueprint doc scanning only |
-| Styling | CSS custom properties + inline styles (no Tailwind in new components) |
+| AI model | MiniMax M2.7 (reasoning model) — used in Blueprint doc scanning only |
+| Styling | CSS custom properties + inline styles; Tailwind utility classes are used sparingly. Responsive overrides live in `globals.css` |
 
 ---
 
-## Repository structure
+## Repository structure (the part that matters)
 
 ```
 tribesplatform-v2/
-├── web/                        ← The live Next.js app (this is what you work in)
-│   ├── src/app/
-│   │   ├── home/               ← /home — portal explainer with live DB content per module
-│   │   ├── dashboard/          ← M00 — 4 stat cards + module grid + activity feed
-│   │   ├── network/            ← M01 — member profiles, discovery, AI matching
-│   │   ├── blueprint/          ← M04 — shared community planning document
-│   │   │   ├── BlueprintClient.tsx   ← Main wizard UI, AI import, export
-│   │   │   ├── wizard-data.ts        ← All FW_DATA: phases, steps, fields, pillars
-│   │   │   └── wizard.css
-│   │   ├── join/               ← M05 — application form + admin review
-│   │   ├── agreements/         ← M06 — collaboration proposals
-│   │   ├── ops/                ← M07 — project management
-│   │   ├── contributions/      ← M08 — achievements (Profile Pioneer badge live)
-│   │   ├── governance/         ← M09 — proposals, consent/concern/object voting
-│   │   ├── profile/edit/       ← 8-step profile wizard
-│   │   ├── u/[username]/       ← Public member profile pages
-│   │   ├── api/claude/route.ts ← MiniMax proxy API endpoint
-│   │   └── auth/               ← Login, signup, callback, reset-password
-│   ├── src/components/
-│   │   ├── AppShell.tsx        ← Shell layout (top bar + side nav) for all app pages
-│   │   ├── AppTopBar.tsx       ← Top navigation — logo, search, user pill, profile completion bar
-│   │   ├── AppSideNav.tsx      ← Left module navigation (M00–M09)
-│   │   └── [legacy components]
-│   ├── src/contexts/
-│   │   └── ProfileCompletion.tsx  ← Shared context for profile completion % (AppTopBar ↔ wizard)
-│   ├── src/lib/
-│   │   └── module-meta.ts      ← All 14 module colors, labels, descriptions
-│   └── wrangler.jsonc          ← Cloudflare deployment config
+├── web/                              ← The live Next.js app — work here
+│   ├── src/
+│   │   ├── app/                      ← Thin route entry points (re-exports from modules)
+│   │   │   ├── admin/users/page.tsx  ← Admin-only user editor (role + lead_circles)
+│   │   │   ├── agreements/           ← /agreements + /agreements/[id]
+│   │   │   ├── ops/                  ← /ops + /ops/new + /ops/[id]
+│   │   │   ├── home/, dashboard/, blueprint/, join/, contributions/, governance/
+│   │   │   ├── profile/edit/, u/[username]/
+│   │   │   ├── api/scan/route.ts     ← MiniMax proxy (was /api/claude, renamed 2026-05)
+│   │   │   ├── auth/                 ← Magic-link login, signup, callback, reset
+│   │   │   ├── layout.tsx            ← Server: fetches role → AppShell
+│   │   │   └── globals.css           ← Design system + responsive overrides
+│   │   ├── core/                     ← Shared infrastructure imported by modules
+│   │   │   ├── components/shell/     ← AppShell, AppTopBar, AppSideNav
+│   │   │   ├── components/ui/        ← shadcn/ui primitives
+│   │   │   ├── lib/supabase/         ← server.ts + client.ts
+│   │   │   ├── lib/roles.ts          ← isFullMember, isCircleAdmin, isOpsAdmin, isAdmin
+│   │   │   ├── lib/format.ts         ← fmtDate, formatDeadline, colorForId, initialForName
+│   │   │   ├── lib/pillars.ts        ← The 5 circles (ecology, hardware, humanware, economy, tech)
+│   │   │   ├── lib/project-status.ts ← Kanban columns + isActiveProject() + isOpenForProposals()
+│   │   │   ├── lib/promotions.ts     ← promoteToMemberIfEligible()
+│   │   │   └── types/database.ts
+│   │   └── modules/                  ← Feature modules — each has README.md
+│   │       ├── admin/                ← UsersAdminClient (admin /admin/users page)
+│   │       ├── home/, m00-dashboard/, m01-network/, m04-blueprint/
+│   │       ├── m05-join/, m06-agreements/, m07-ops/, m08-contributions/, m09-governance/
+│   ├── CONTRIBUTING.md               ← How to contribute to one module
+│   └── wrangler.jsonc                ← Cloudflare config
 │
-├── Modules/
-│   ├── m4_framework_wizard/    ← Original standalone wizard app (reference only)
-│   └── m1_comm_network/        ← Original standalone network app (reference only)
-│
-└── CLAUDE.md                   ← This file
+├── archive/Modules/                  ← Pre-v2 standalone sources (reference only)
+├── DOCS.md                           ← Index of every README in the repo
+├── ARCHITECTURE.md, CLAUDE.md, README.md, log.md, EXECUTIVE-SUMMARY.md, …
 ```
+
+See `DOCS.md` for the full index of explainer files.
 
 ---
 
 ## App Shell architecture
 
 Every page (except `/` and `/auth/*`) is wrapped in `AppShell.tsx`:
-- **AppTopBar** — logo + v3.01 + search bar + bell + user pill (→ `/profile/edit`) + profile completion bar
-- **AppSideNav** — M00–M09 module links
+- **AppTopBar** — logo + version badge + search bar + bell + user pill (→ `/profile/edit`) + profile completion bar
+- **AppSideNav** — M00–M09 module links + Admin section (only when `isAdmin(role)`)
 - **main** — page content
 
-`ProfileCompletionProvider` wraps the shell. `AppTopBar` seeds the `%` value on load from DB; the profile wizard pushes live updates as the user fills fields.
+`ProfileCompletionProvider` wraps the shell. `layout.tsx` fetches the user's role once server-side and passes it down — no client-side role fetch.
+
+---
+
+## M07 Operations — the unified Kanban
+
+This is the largest module. Both the main `/ops` board and each `/ops/[id]` project page render the same five-column model from `@/core/lib/project-status`:
+
+```
+Ideas → Backlog → In progress → Review → Done
+```
+
+- **Main board** cards = **projects**. Status drives the column.
+- **Project detail** cards = **deliverables** for that project; the leftmost Ideas column shows pending collaboration proposals (visible to admin / project creator only).
+- Drag-and-drop on both surfaces is permission-gated (`canMoveProject` / `canManage`).
+- Accepting a proposal — by dragging Ideas → Backlog or clicking Accept — flips the agreement status to `'accepted'` and spawns a new `deliverables` row with `from_agreement_id` linking back.
+
+See `web/src/modules/m07-ops/README.md` for the full module spec.
 
 ---
 
 ## AI document scanning — critical config
 
-File: `web/src/app/api/claude/route.ts`
+File: `web/src/app/api/scan/route.ts` (the route was renamed from `/api/claude`).
 
 - **Model:** MiniMax M2.7 (reasoning model — always outputs `<think>...</think>` blocks)
 - **`max_completion_tokens: 8192`** — do not raise (524 gateway timeout). Do not lower (JSON truncation).
@@ -125,72 +144,7 @@ File: `web/src/app/api/claude/route.ts`
 
 ---
 
-## What has been built (v3.01)
-
-### Infrastructure
-- Cloudflare Workers via OpenNext — deployed and stable
-- Supabase auth + all module tables connected
-- AppShell with consistent top bar + side nav on all pages
-
-### `/home` — Portal Explainer
-- Server component fetching live DB data for all modules
-- Interactive sections for M01 (real members), M04 (animated blueprint phases), M05 (values checkboxes), M06 (projects + proposal form), M07 (live deliverables), M08/M09 (demo)
-- All module content links to the respective module route
-- M01 member cards link to `/u/[username]`
-
-### M00 — Dashboard (`/dashboard`)
-- 4 stat cards: Members, Blueprint readiness, Open projects, Open proposals
-- 2-column: module grid (left) + activity feed + next-step card (right)
-- Redirects unauthenticated users to `/home`
-
-### M01 — Community Network
-- Profile discovery, AI match scoring, tile/list view
-- Public member profiles at `/u/[username]`
-
-### M04 — Blueprint
-- Full 4-phase wizard with AI document scanning
-- Conflict-aware import review panel
-- Document export (Markdown + Print/PDF)
-
-### M05 — Join
-- Application form from Blueprint questions
-- Admin review panel
-- Reapply flow: rejected applicants can submit a new application
-
-### M06 — Agreements
-- Collaboration proposals on open projects
-- Admin review + status flow
-
-### M07 — Operations
-- Project management with timeline updates
-
-### M08 — Contributions (`/contributions`)
-- Achievements catalog page
-- **Profile Pioneer badge** — awarded when profile reaches 100% completion
-- `user_achievements` table with RLS
-
-### M09 — Governance (`/governance`)
-- Open proposals list with 4 decision mode filters (Consent ☉, Democracy ☑, Meritocracy △, AI ◇)
-- Vote: consent / concern / object (click again to un-vote)
-- Concern banner when concerns are logged
-- Discussion thread per proposal (post with ⌘↵)
-- New proposal modal (title, description, decision mode, days open)
-- `proposals`, `proposal_votes`, `proposal_comments` tables with RLS
-
-### Profile completion bar
-- Thin bar under the top nav showing profile % (11-point check)
-- Disappears at 100%
-- Updates live as the user fills the profile wizard (shared via `ProfileCompletionContext`)
-- Completion checks: avatar, first_name, headline, city, user_types, values_principles, skills, goals, 1+ offer, 1+ request, 1+ travel plan
-
-### Profile wizard
-- 8-step wizard at `/profile/edit`
-- Reachable by clicking user icon in top nav
-- Pushes live completion % to AppTopBar via context
-
----
-
-## Key things NOT to do
+## Things NOT to do
 
 - Do NOT add `export const runtime = 'edge'` to any route — breaks OpenNext
 - Do NOT raise `max_completion_tokens` above 8192 for MiniMax calls — 524 timeout
@@ -198,6 +152,9 @@ File: `web/src/app/api/claude/route.ts`
 - Do NOT add a system message to MiniMax calls — token budget burn
 - Do NOT deploy secrets in `wrangler.jsonc` — use `wrangler secret put`
 - Do NOT use `npm run deploy` — use `npm run deploy:cf`
+- Do NOT hard-code role strings (`role === 'admin'`) — use the helpers in `@/core/lib/roles`
+- Do NOT hard-code project status strings (`status === 'active'`) — that value no longer exists. Use `isActiveProject()` / `isOpenForProposals()` from `@/core/lib/project-status`.
+- Do NOT import from `@/lib/`, `@/components/`, `@/contexts/`, or `@/types/` — those are legacy paths
 
 ---
 
@@ -219,13 +176,10 @@ cd web && npx tsc --noEmit
 
 ---
 
-## Version history summary
+## Where to find docs
 
-| Version | What changed |
-|---------|-------------|
-| v3.01 | /home portal explainer, M08 contributions + achievements, M09 governance (proposals/votes/comments), profile completion bar, AppShell with side nav, reapply flow, M01 member card links |
-| v2.13 | Document export modal (preview + Markdown + Print/PDF) |
-| v2.12 | Changelog page, "← Home" nav in wizard |
-| v2.11 | AI scanning — chunk size 5000, max_completion_tokens 8192 |
-| v2.08 | Cloudflare Workers migration, removed runtime='edge', extractJSON() |
-| v2.07 | Parallel scanning (CONCURRENCY=4) |
+`DOCS.md` at the repo root is the index. The full set:
+
+- **Root** — `README.md`, `EXECUTIVE-SUMMARY.md`, `ARCHITECTURE.md`, `AiNSP_RnDev.md`, `techstack_AiNSP_RnDev.md`, `EXECUTION-PLAN.md`, `log.md`, this file
+- **App** — `web/CONTRIBUTING.md`, `web/src/core/README.md`, `web/src/modules/README.md`
+- **Modules** — `web/src/modules/mXX-name/README.md` (one per module)

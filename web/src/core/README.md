@@ -21,12 +21,14 @@ core/
 │   ├── supabase/
 │   │   ├── client.ts   Browser Supabase client (use in 'use client' files)
 │   │   └── server.ts   Server Supabase client (use in Server Components / route handlers)
-│   ├── roles.ts        Role authority helpers — isFullMember, isCircleAdmin, isOpsAdmin, isAdmin, etc.
-│   ├── promotions.ts   Member promotion logic — promoteToMemberIfEligible()
-│   ├── format.ts       Shared display helpers — fmtDate, formatDeadline, colorForId, initialForName
-│   ├── modules.ts      Module registry — the canonical list of all M00–M13 modules
-│   ├── module-meta.ts  Display metadata (bg color, label, desc) for each module number
-│   └── utils.ts        Tailwind class merge helper (cn)
+│   ├── roles.ts          Role authority helpers — isFullMember, isCircleAdmin, isOpsAdmin, isAdmin, etc.
+│   ├── promotions.ts     Member promotion logic — promoteToMemberIfEligible()
+│   ├── format.ts         Shared display helpers — fmtDate, formatDeadline, colorForId, initialForName
+│   ├── pillars.ts        The 5 circles (ecology, hardware, humanware, economy, tech) — PILLARS, PILLAR_META, isPillar
+│   ├── project-status.ts M07 Kanban model — PROJECT_KANBAN_COLUMNS, PROJECT_STATUS_META, isActiveProject, isOpenForProposals
+│   ├── modules.ts        Module registry — the canonical list of all M00–M13 modules
+│   ├── module-meta.ts    Display metadata (bg color, label, desc) for each module number
+│   └── utils.ts          Tailwind class merge helper (cn)
 └── types/
     └── database.ts     TypeScript types generated from the Supabase schema
 ```
@@ -42,6 +44,8 @@ import type { Database } from '@/core/types/database'
 import { isFullMember, isCircleAdmin, isOpsAdmin } from '@/core/lib/roles'
 import { promoteToMemberIfEligible } from '@/core/lib/promotions'
 import { fmtDate, formatDeadline, colorForId, initialForName } from '@/core/lib/format'
+import { PILLARS, PILLAR_META, isPillar } from '@/core/lib/pillars'
+import { PROJECT_KANBAN_COLUMNS, PROJECT_STATUS_META, isActiveProject } from '@/core/lib/project-status'
 ```
 
 ## Supabase clients
@@ -74,6 +78,33 @@ role = await promoteToMemberIfEligible(supabase, user.id, role)
 ```
 
 This runs at the top of `app/agreements/page.tsx` and `app/ops/page.tsx`.
+
+## Circles — the 5 pillars (`core/lib/pillars.ts`)
+
+A "circle" is one of the 5 regenerative pillars a project can belong to. Used as a categorical bucket on M07 Operations.
+
+```ts
+export const PILLARS = ['ecology', 'hardware', 'humanware', 'economy', 'tech'] as const
+```
+
+`PILLAR_META[p]` returns `{ label, color, emoji }` for each. `isPillar(value)` is a type guard. `user_profiles.lead_circles: text[]` records which circles a `circle_lead` is responsible for — see `/admin/users` for assignment.
+
+## Project status (`core/lib/project-status.ts`)
+
+The M07 Kanban is a five-column board shared by both the main `/ops` page (cards = projects) and the per-project `/ops/[id]` page (cards = deliverables, plus pending proposals in the leftmost Ideas column):
+
+```
+pending (Ideas) → backlog → in_progress → review → done
+```
+
+`paused` is an off-board status. Helpers exported:
+
+| Helper | What it does |
+|--------|--------------|
+| `PROJECT_KANBAN_COLUMNS` | Ordered list of `{ key, label, color }` — drive the Kanban grid. |
+| `PROJECT_STATUS_META` | Label / color for the project header status pill. |
+| `isActiveProject(status)` | True for `backlog`, `in_progress`, or `review`. |
+| `isOpenForProposals(status)` | True for any active project plus `pending`. |
 
 ## App shell and role delivery
 

@@ -1,6 +1,6 @@
 # MyCoNet v2 — Architecture & Database Schema
 
-> Status: v3.12 LIVE | Updated: 2026-05-22
+> Status: v3.41 LIVE | Updated: 2026-05-23
 
 ---
 
@@ -30,7 +30,7 @@ This is Phase 0. The codebase is designed to be cloned for multiple communities 
 | 04 | Blueprint | ✅ Live | Shared community document. Admin edits. All members read. AI scanning. |
 | 05 | Join | ✅ Live | Application form. Admin reviews. Accept sets role to `joining`. Guest-browsable. |
 | 06 | Agreements | ✅ Live | Collaboration proposals on open projects. Admin reviews. Guest-browsable. |
-| 07 | Operations | ✅ Live | Admin creates projects, posts updates. Projects surface in M06. Guest-browsable. |
+| 07 | Operations | ✅ Live | Five-column Project Kanban (Ideas → Backlog → In progress → Review → Done) with drag-and-drop, gated by role + circle. Per-project Kanban: pending proposals appear in Ideas; accepting one spawns a deliverable. Guest-browsable. |
 | 08 | Contribution Tracking | ✅ Live | Achievements catalog. Profile Pioneer badge at 100% profile. |
 | 09 | Governance | ✅ Live | Proposals, consent/concern/object voting, discussion threads. |
 | 10 | Genesis Bot | ⏳ Planned | Telegram bridge for DB change requests. |
@@ -108,6 +108,10 @@ CREATE TABLE user_profiles (
   offers JSONB[],              -- [{ category, title, description }]
   seeks JSONB[],
   places_traveling TEXT,
+  lead_circles TEXT[] DEFAULT '{}',
+    -- Which pillar circles this user is responsible for (only meaningful for circle_lead role).
+    -- Each entry is one of: ecology | hardware | humanware | economy | tech.
+    -- Admins set this on /admin/users. Used by the M07 Kanban drag-permission check.
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -148,20 +152,30 @@ CREATE TABLE applications (
 **Accept flow:** Admin sets `status = 'accepted'` → `user_profiles.role` updated to `'joining'` → member gains M06 access.
 
 ### `projects`
-Community projects created and managed by admin in M07 Operations.
+Community projects created and managed by admin (or proposed by members through M06) in M07 Operations.
 
 ```sql
 CREATE TABLE projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT,
-  status TEXT DEFAULT 'active',
-    -- active | paused | completed
+  status TEXT DEFAULT 'pending',
+    -- pending | backlog | in_progress | review | done | paused
   open_for_collaborators BOOLEAN DEFAULT false,
+  circle TEXT,
+    -- one of: ecology | hardware | humanware | economy | tech
+    -- see @/core/lib/pillars
+  needs TEXT[],
+  deadline DATE,
+  sprint_name TEXT,
+  created_by UUID REFERENCES auth.users(id),
+  lead_user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+
+The Kanban is rendered from the status column. `paused` is an off-board state. `circle` drives both the visual badge and the circle-lead permission check.
 
 ### `project_updates`
 Timeline updates posted by admin for each project.
@@ -177,7 +191,7 @@ CREATE TABLE project_updates (
 ```
 
 ### `collaboration_agreements`
-Proposals submitted by `joining+` members on open projects.
+Proposals submitted by `joining+` members on open projects. Pending proposals appear in the **Ideas** column of the per-project Kanban (visible only to admin / project creator). Accepting one spawns a row in `deliverables` linked by `from_agreement_id`.
 
 ```sql
 CREATE TABLE collaboration_agreements (
@@ -186,12 +200,34 @@ CREATE TABLE collaboration_agreements (
   user_id UUID REFERENCES auth.users(id),
   work_description TEXT NOT NULL,    -- what the member will do
   expected_reward TEXT NOT NULL,     -- what they expect in return
+  conditions TEXT,                   -- any timing / availability / dependency notes
   status TEXT DEFAULT 'pending',
     -- pending | accepted | active | rejected | completed
+    -- Once 'accepted', the work itself is tracked as a row in `deliverables`.
   admin_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(project_id, user_id)
+);
+```
+
+### `deliverables`
+Project subtasks — the cards in columns Backlog / In progress / Review / Done on the per-project Kanban. Created either ad-hoc by project creator / admin, or automatically when a collaboration agreement is accepted.
+
+```sql
+CREATE TABLE deliverables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  status TEXT DEFAULT 'backlog',
+    -- backlog | in_progress | review | done
+  due_date DATE,
+  assignee_id UUID REFERENCES auth.users(id),
+  progress NUMERIC DEFAULT 0,
+  from_agreement_id UUID REFERENCES collaboration_agreements(id) ON DELETE SET NULL,
+    -- Set when this deliverable was spawned by accepting a collaboration proposal.
+    -- Null for ad-hoc subtasks.
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 ```
 

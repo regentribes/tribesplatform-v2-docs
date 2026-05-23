@@ -90,6 +90,8 @@ const isAdmin = isOpsAdmin(profileRes.data?.role ?? '')
 | Role helpers | `@/core/lib/roles` |
 | Member promotion | `@/core/lib/promotions` |
 | Date / color / initial helpers | `@/core/lib/format` |
+| Circles (the 5 pillars) | `@/core/lib/pillars` |
+| Project status / Kanban model | `@/core/lib/project-status` |
 | Module metadata | `@/core/lib/module-meta` |
 | Match scoring | `@/modules/m01-network/lib/match-score` |
 | Blueprint compute | `@/modules/m04-blueprint/lib/blueprint-compute` |

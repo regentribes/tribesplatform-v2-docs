@@ -2,6 +2,65 @@
 
 ---
 
+## 2026-05-23 — v3.41 — Unified Project Kanban, circles, drag-and-drop, admin users editor
+
+Big PM-pass restructure of M07 Operations. The board now has a single mental model: five columns shared between the main `/ops` page (cards = projects) and the per-project `/ops/[id]` page (cards = deliverables, plus pending proposals in the Ideas column).
+
+### M07 Operations — unified Kanban
+
+- Five columns everywhere: **Ideas → Backlog → In progress → Review → Done**. Defined once in `@/core/lib/project-status`. `paused` exists in the schema but does not appear on the board.
+- Main `/ops` board now renders **project cards** across the five columns by `projects.status`, replacing the old "deliverables across all projects" view. Drag-and-drop changes project status with permission gating (admin / project_lead / circle_lead). The old "Pending proposals" admin panel is gone — pending projects live in the Ideas column.
+- Each project card shows its circle badge, description, and subtask progress (`3/7 done`).
+- Per-project `/ops/[id]` page has its own five-column Kanban. The Ideas column shows **pending collaboration proposals** (visible to admin / project creator only). Backlog → Done columns show deliverables. Drag-and-drop works across both card kinds.
+- Dropping a proposal card into Backlog (or any non-Ideas column) calls `acceptProposal()`: flips the agreement to `'accepted'` and inserts a new deliverable with `from_agreement_id` linking back. Or click **Accept →** on the card.
+
+### Schema
+
+- `projects.status` check constraint expanded from `pending | active | paused | completed` to `pending | backlog | in_progress | review | done | paused`. Existing data migrated: `active → backlog`, `completed → done`.
+- `projects.circle TEXT` — one of `ecology | hardware | humanware | economy | tech`.
+- `user_profiles.lead_circles TEXT[]` — which circles a `circle_lead` user is responsible for. Set via the new `/admin/users` page.
+- `deliverables.from_agreement_id UUID REFERENCES collaboration_agreements(id) ON DELETE SET NULL` — backfilled for all existing accepted / active / completed agreements so they show up on the new Kanban immediately.
+
+### New shared helpers (in `core/lib/`)
+
+- `pillars.ts` — `PILLARS`, `PILLAR_META`, `isPillar()`.
+- `project-status.ts` — `PROJECT_KANBAN_COLUMNS`, `PROJECT_STATUS_META`, `isActiveProject()`, `isOpenForProposals()`.
+- `format.ts` (added earlier this version) — `fmtDate`, `formatDeadline`, `colorForId`, `initialForName`. Consolidated from 6 inline copies.
+
+### Admin users editor
+
+- New `/admin/users` page (admin-gated). Lists every user with inline editor: role dropdown + circle pill picker (shown when role is `circle_lead`). Save button per row with optimistic feedback. Search filters by name, username, role.
+- Sidenav gains an "Admin" section that renders only for `isAdmin(role)`.
+
+### Type consolidation and boundary hardening
+
+- `modules/m07-ops/types.ts` consolidates `Project`, `ProjectSummary`, `Deliverable`, `ProjectUpdate`, `CollaborationAgreement`, `MyProposal`. Replaces 11 duplicated inline interfaces.
+- All 12 `user_profiles.single()` route fetches converted to `.maybeSingle()` so brand-new users without a profile row don't error.
+- `network/page.tsx` restructured to remove all 10+ `as any` casts.
+
+### Inline proposal form on project detail (added earlier)
+
+- "Propose collaboration" and "Be the first to propose" now open a form right on the project page (work description / expected reward / optional conditions). Submission goes through upsert with `onConflict: 'project_id,user_id'` — no duplicate-key errors.
+
+### Mobile
+
+- Ops project detail: padding scales down, two-column admin grid stacks, add-subtask row goes vertical (title → date → button full-width), task titles truncate with ellipsis, proposal status badge flex-wraps.
+
+### Branch consolidation
+
+- GitHub repo trimmed to a single branch `master` (was both `main` and a stale `master`).
+- Cloudflare worker renamed `tribes-platform` → `myconet`. Live URL is now `https://myconet.correa-oscar11.workers.dev`.
+
+### Archive
+
+- Pre-v2 standalone sources moved from root `Modules/` to `archive/Modules/`. Mapping in `archive/README.md`. Conceptual framework grounding (RNF / Alchemy / RCOS / CLIPS) ported into `web/src/modules/m04-blueprint/README.md`.
+
+### Docs index
+
+- New `DOCS.md` at the repo root indexes every README / explainer file.
+
+---
+
 ## 2026-05-21 — v3.10 — Match scoring, AppTopBar dropdown, Home access tiers, Governance 4-layer demo
 
 This session wired real computed match scores across the network, upgraded the top bar to a full dropdown menu, added a role-aware access tiers explainer to /home, and replaced the governance placeholder with a proper 4-layer interactive demo.
