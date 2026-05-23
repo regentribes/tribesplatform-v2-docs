@@ -180,6 +180,6 @@ cd web && npx tsc --noEmit
 
 `DOCS.md` at the repo root is the index. The full set:
 
-- **Root** — `README.md`, `EXECUTIVE-SUMMARY.md`, `ARCHITECTURE.md`, `AiNSP_RnDev.md`, `techstack_AiNSP_RnDev.md`, `EXECUTION-PLAN.md`, `log.md`, this file
+- **Root** — `README.md`, `EXECUTIVE-SUMMARY.md`, `ARCHITECTURE.md`, `EXECUTION-PLAN.md`, `CLEANUP.md`, `log.md`, this file
 - **App** — `web/CONTRIBUTING.md`, `web/src/core/README.md`, `web/src/modules/README.md`
 - **Modules** — `web/src/modules/mXX-name/README.md` (one per module)

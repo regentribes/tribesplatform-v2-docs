@@ -2,7 +2,7 @@
 
 Every explainer / README file in this repo, with what it's for and who should read it. If you're looking for something specific, this is the map.
 
-> Last updated: 2026-05-23 (v3.41)
+> Last updated: 2026-05-23 (v3.41) — removed stale `AiNSP_RnDev.md` / `techstack_AiNSP_RnDev.md`; their content was merged into EXECUTIVE-SUMMARY (service/revenue model) and ARCHITECTURE §12 (planned agent architecture).
 
 ---
 
@@ -11,10 +11,8 @@ Every explainer / README file in this repo, with what it's for and who should re
 | File | What it covers | Audience |
 |------|----------------|----------|
 | [`README.md`](./README.md) | Repo entry point — quick index, modules list, status. | Everyone, first read. |
-| [`EXECUTIVE-SUMMARY.md`](./EXECUTIVE-SUMMARY.md) | Full platform overview — all 14 modules, 3 agents, user journey, dev phases. Broad and accessible. | Strategic / non-technical. |
-| [`AiNSP_RnDev.md`](./AiNSP_RnDev.md) | MycoNet as a service — SPARK / THRIVE business model, revenue streams, agent flow. | Business / product. |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Implementation blueprint — module specs, SQL schema, roadmap, tech stack decisions. | Engineers. |
-| [`techstack_AiNSP_RnDev.md`](./techstack_AiNSP_RnDev.md) | Technical architecture — event-driven flow, LISTEN/NOTIFY, hosting decisions. | Engineers. |
+| [`EXECUTIVE-SUMMARY.md`](./EXECUTIVE-SUMMARY.md) | Full platform overview — all 14 modules, 3 agents, user journey, SPARK/THRIVE service model, dev phases. | Strategic / non-technical. |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Implementation blueprint — module specs, SQL schema, planned M10–M13 agent architecture (event bus, MycoNet memory, Telegram approval flow), deployment. | Engineers. |
 | [`EXECUTION-PLAN.md`](./EXECUTION-PLAN.md) | Project execution plan — milestones, sequencing. | Project leads. |
 | [`CLEANUP.md`](./CLEANUP.md) | Historical refactor notes and dead-code removal logs. | Reference only. |
 | [`CLAUDE.md`](./CLAUDE.md) | Coding-agent context — current architecture, what NOT to do, common commands. | AI coding agents + new engineers. |

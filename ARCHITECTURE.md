@@ -1,6 +1,6 @@
 # MyCoNet v2 — Architecture & Database Schema
 
-> Status: v3.41 LIVE | Updated: 2026-05-23
+> Status: v3.41 LIVE | Updated: 2026-05-23 (merged in M10–M13 agent design + service/revenue model from old planning docs)
 
 ---
 
@@ -479,7 +479,97 @@ The platform is built to be cloned. When a second community wants a portal:
 
 ---
 
-## 12. Relationship to Other Documents
+## 12. Planned: M10–M13 Agent Architecture
+
+This section captures the design for the future agent layer (M10 Genesis, M11 Quinn, M12 MycoNet, M13 Hive). **None of this is built yet** — sections 1–11 describe reality; this section describes the target.
+
+### Three agents per community
+
+| Agent | Module | Instances | Role |
+|---|---|---|---|
+| Quinn | M11 | One per member | Personal AI — daily reminders, recommendations; routes member input upward to MycoNet |
+| MycoNet | M00 + M12 | One per community | Community brain — subscribes to every module event, maintains memory, runs the approval queue, executes DB writes after leadership approval |
+| Genesis | M10 | One per community | Telegram bridge — turns conversational requests in the Community Group into structured DB-change requests |
+
+Direction of information flow:
+- Quinn → MycoNet — bottom-up (member context aggregates)
+- MycoNet → Quinn — top-down (community state propagates)
+- Genesis ↔ MycoNet — bidirectional (chat requests → DB; DB confirmations → chat)
+
+### Event bus
+
+Every writable module (M01–M09, M11–M13) must fire an event when it writes. Two compatible transports:
+- **Supabase Realtime** — preferred, matches the current Supabase stack
+- **Postgres LISTEN/NOTIFY** — lower-level alternative if Realtime is insufficient
+
+Event payload shape: `{ module, record_type, record_id, action, timestamp, actor }`
+
+MycoNet subscribes to all events. Each Quinn instance subscribes to events scoped to its member.
+
+#### Event types
+
+| Event | Triggered by | Receivers |
+|---|---|---|
+| `member.joined` | M05 | MycoNet → Leadership Group; Quinn → new member |
+| `agreement.signed` | M06 | MycoNet → Leadership Group |
+| `deliverable.completed` | M07 | MycoNet → Leadership Group; Quinn → assignee |
+| `governance.vote_started` | M09 | MycoNet → Leadership Group; Quinn → affected members |
+| `genesis.request.pending` | Genesis (M10) | MycoNet Dashboard (pending queue) |
+| `genesis.request.approved` | Leader (chat or dashboard) | Genesis → Community Group; MycoNet → Leadership Group |
+| `genesis.request.rejected` | Leader (chat or dashboard) | Genesis → Community Group |
+
+### MycoNet community memory
+
+Two stores per community, both in the community's Supabase Postgres:
+- **Structured state** (JSONB) — current tasks, members, decisions, calendar
+- **Vector embeddings** (pgvector) — past decisions, patterns, community history
+
+Leadership queries MycoNet in natural language; MycoNet synthesizes responses from both stores.
+
+### MycoNet Pro (premium agentic tier)
+
+- Pushes to the Telegram Leadership Group on **every** module write
+- Cross-module synthesis (e.g. "your M09 governance decision affects the M07 budget")
+- 30-minute heartbeat: "Pending decisions: N items awaiting your approval"
+- Responds to leadership queries in natural language
+
+### Two-group Telegram architecture
+
+| Group | Members | What happens |
+|---|---|---|
+| Community Group | All members + Genesis | Members invoke `@Genesis` for DB-change requests; Genesis confirms outcomes; Genesis shares activity info |
+| Leadership Group | `admin` + `circle_lead` + `project_lead` + MycoNet bot + Genesis | MycoNet Pro pushes updates; Genesis posts approval requests; leaders approve/reject in-chat |
+
+Two bots:
+- **MycoNet Bot** — Leadership Group only; pushes proactive updates, answers leadership queries
+- **Genesis Bot** — both groups; receives requests, posts approvals, confirms outcomes
+
+### Approval flow
+
+```
+1. Member in Community Group: "@Genesis record that we decided to postpone the garden meeting"
+2. Genesis → MycoNet: POST /genesis-requests { request, member_id, timestamp }
+3. MycoNet adds to pending queue (Dashboard); Genesis posts request in Leadership Group
+4. Leader approves (in chat or on Dashboard)
+5. MycoNet writes to DB → posts confirmation in Leadership Group → notifies Genesis
+6. Genesis posts "✅ Recorded" in Community Group (or "❌ Request not approved")
+```
+
+All Genesis requests require human approval — no autonomous DB writes from chat.
+
+### Open technical questions
+
+1. **Event schema versioning** — who owns the schema and how do we evolve it without breaking subscribers?
+2. **Transport** — Supabase Realtime vs Postgres LISTEN/NOTIFY at scale?
+3. **Vector store** — pgvector in the community Postgres, or external (Pinecone/Milvus)?
+4. **Genesis security** — rate limiting, member verification, spam prevention?
+5. **Offline handling** — what happens when MycoNet goes down? Can the community still operate?
+6. **MycoNet hosting** — single multi-tenant instance vs per-community deploys?
+7. **Quinn hosting** — one inference instance per community serving all members, or per-member?
+
+---
+
+## 13. Relationship to Other Documents
 
 | Document | Purpose |
 |---|---|

@@ -15,10 +15,8 @@ Each document serves a different purpose. Read them in order.
 | Document | What it's for |
 |----------|---------------|
 | [`DOCS.md`](./DOCS.md) | **Index of every README and explainer file** in the repo, grouped by location. Find anything fast. |
-| `EXECUTIVE-SUMMARY.md` | **Start here.** Full platform overview — what it is, all 14 modules, 3 agents, user journey, development phases, tech stack. Broad and accessible. |
-| `AiNSP_RnDev.md` | MycoNet as a service. SPARK/THRIVE business model, revenue streams, how the three agents work together, full approval flow. |
-| `ARCHITECTURE.md` | Implementation blueprint — module specs, SQL schema, roadmap, tech stack decisions. For builders and engineers. |
-| `techstack_AiNSP_RnDev.md` | Technical architecture — event-driven data flow, PostgreSQL LISTEN/NOTIFY, Telegram groups, Genesis↔MycoNet API, hosting decisions. |
+| `EXECUTIVE-SUMMARY.md` | **Start here.** Full platform overview — what it is, all 14 modules, 3 agents, user journey, SPARK/THRIVE service model, dev phases, tech stack. |
+| `ARCHITECTURE.md` | Implementation blueprint — module specs, SQL schema, planned M10–M13 agent architecture (event bus, MycoNet memory, Telegram approval flow), deployment. |
 | `CLAUDE.md` | Agent / new-engineer context — what's built, deployment, things NOT to do, common commands. |
 | `log.md` | Project change log — tracks major decisions, module changes, architecture shifts over time. |
 | [`web/CONTRIBUTING.md`](./web/CONTRIBUTING.md) | How to contribute to a single module without needing the whole codebase. |
