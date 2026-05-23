@@ -100,22 +100,37 @@ export default function SeeksPage() {
   }
 
   if (loading) return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
     </div>
   )
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">My Seeks</h1>
-          <p className="text-muted-foreground text-sm mt-1">Help, resources, and connections you're looking for</p>
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px' }}>
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
+          M01 · My Seeks
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Add Seek</Button>
-          </DialogTrigger>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+              {requests.length === 0 ? "Tell the community what you need" : `${requests.length} active seek${requests.length !== 1 ? 's' : ''}`}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+              Help, resources, and connections you're looking for.
+            </p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <button onClick={openNew} style={{
+                fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)',
+                border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                <Plus style={{ width: 14, height: 14 }} />
+                Add seek
+              </button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editing ? 'Edit Seek' : 'New Seek'}</DialogTitle>
@@ -153,44 +168,70 @@ export default function SeeksPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {requests.length === 0 ? (
-        <Card className="border-card-border">
-          <CardContent className="py-16 text-center">
-            <HelpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No seeks yet</h3>
-            <p className="text-muted-foreground mb-4">Let the community know what you need.</p>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Post Your First Seek</Button>
-          </CardContent>
-        </Card>
+        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '40px 24px', textAlign: 'center' }}>
+          <HelpCircle style={{ width: 36, height: 36, color: 'var(--ink-4)', margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>No seeks yet</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 14 }}>Let the community know what you need.</div>
+          <button onClick={openNew} style={{
+            fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)',
+            border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+            <Plus style={{ width: 14, height: 14 }} />
+            Post your first seek
+          </button>
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {requests.map(r => (
-            <Card key={r.id} className="border-card-border">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex gap-2 flex-wrap">
-                    {r.category && <Badge variant="secondary">{r.category}</Badge>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          {requests.map(r => {
+            const urgencyColor =
+              r.urgency === 'urgent' ? 'var(--m9)' :
+              r.urgency === 'high'   ? 'var(--m4)' :
+              r.urgency === 'low'    ? 'var(--ink-4)' :
+              'var(--m1)'
+            return (
+              <div key={r.id} style={{
+                position: 'relative', overflow: 'hidden',
+                background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10,
+                padding: '14px 16px',
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: urgencyColor }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginTop: 4, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {r.category && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg-2)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>
+                        {r.category}
+                      </span>
+                    )}
                     {r.urgency && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${URGENCY_COLORS[r.urgency] ?? ''}`}>
-                        {r.urgency.charAt(0).toUpperCase() + r.urgency.slice(1)}
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
+                        color: urgencyColor,
+                        background: `color-mix(in srgb, ${urgencyColor} 10%, var(--surface))`,
+                        border: `1px solid color-mix(in srgb, ${urgencyColor} 25%, var(--rule))`,
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                      }}>
+                        {r.urgency}
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(r.id)} disabled={deletingId === r.id}>
-                      {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    </Button>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => openEdit(r)} aria-label="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 4, display: 'flex' }}>
+                      <Pencil style={{ width: 14, height: 14 }} />
+                    </button>
+                    <button onClick={() => handleDelete(r.id)} disabled={deletingId === r.id} aria-label="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 4, display: 'flex' }}>
+                      {deletingId === r.id ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> : <Trash2 style={{ width: 14, height: 14 }} />}
+                    </button>
                   </div>
                 </div>
-                <p className="text-sm">{r.request_text}</p>
-              </CardContent>
-            </Card>
-          ))}
+                <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>{r.request_text}</div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

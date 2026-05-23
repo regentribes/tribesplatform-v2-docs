@@ -17,6 +17,7 @@ Each document serves a different purpose. Read them in order.
 | [`DOCS.md`](./DOCS.md) | **Index of every README and explainer file** in the repo, grouped by location. Find anything fast. |
 | `EXECUTIVE-SUMMARY.md` | **Start here.** Full platform overview — what it is, all 14 modules, 3 agents, user journey, SPARK/THRIVE service model, dev phases, tech stack. |
 | `ARCHITECTURE.md` | Implementation blueprint — module specs, SQL schema, planned M10–M13 agent architecture (event bus, MycoNet memory, Telegram approval flow), deployment. |
+| [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md) | **Visual language reference.** Design tokens, component patterns (StatCard, ModCard, eyebrows, next-step cards), composition rules, what NOT to do. Canonical implementation: `web/src/modules/m00-dashboard/DashboardPage.tsx`. |
 | `CLAUDE.md` | Agent / new-engineer context — what's built, deployment, things NOT to do, common commands. |
 | `log.md` | Project change log — tracks major decisions, module changes, architecture shifts over time. |
 | [`web/CONTRIBUTING.md`](./web/CONTRIBUTING.md) | How to contribute to a single module without needing the whole codebase. |
@@ -54,4 +55,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.44 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: version badge now shows on the public landing page too, single source-of-truth for the version string (`core/lib/version.ts`), changelog backfilled with v3.06 / v3.07 / v3.21.
+🟢 **v3.45 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 Members module pages restyled to match the dashboard's Google-style sleek visual language. New `DESIGN-SYSTEM.md` documents the tokens and patterns.

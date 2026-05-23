@@ -32,7 +32,8 @@ New members join **by invitation only** — someone already in the community sha
 - **Deploy command:** `cd web && npm run deploy:cf`
 - **Config:** `web/wrangler.jsonc`
 - **Adapter:** `@opennextjs/cloudflare` v1.19.9 (OpenNext)
-- **Current version:** v3.44 (source of truth: `web/src/core/lib/version.ts` — used by `AppTopBar` and `LandingClient`)
+- **Current version:** v3.45 (source of truth: `web/src/core/lib/version.ts` — used by `AppTopBar` and `LandingClient`)
+- **Design system:** see `DESIGN-SYSTEM.md` at the repo root. Canonical reference implementation is `web/src/modules/m00-dashboard/DashboardPage.tsx`. All new module pages must match the dashboard's visual language.
 
 ---
 

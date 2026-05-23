@@ -2,6 +2,18 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.45',
+    date: '2026-05-23',
+    title: 'M01 Members module pages restyled to match the dashboard (Google-style sleek)',
+    items: [
+      'Every /network/* page now follows the same visual language as /dashboard (M00) — mono eyebrows, display-font headings, white surfaces with thin grey borders, 10px card radii, 3px module-color top stripes, accent colors used sparingly.',
+      'Restyled pages: /network (members dashboard), /network/matches (with new tab bar + score-bar match cards), /network/discover (with new filter chips + result cards), /network/offers, /network/seeks, /network/profile (header).',
+      'New MatchesTabs — replaced shadcn Tabs with a segmented pill-style tab bar that matches the rest of the design. Match cards now have a 3px progress bar showing compatibility visually.',
+      'New DiscoverClient — replaced shadcn Card / Badge / Button with inline-style cards. Search input + Select kept (shadcn primitives are fine for form controls).',
+      'New repo-root doc DESIGN-SYSTEM.md captures the visual language: tokens, component patterns (StatCard, ModCard, eyebrows, next-step cards, avatars, chips), composition guidance, and explicit "what NOT to do" rules. The canonical reference is the M00 DashboardPage.',
+    ],
+  },
+  {
     version: 'v3.44',
     date: '2026-05-23',
     title: 'Version badge on the public landing page + single source of truth for the version string',

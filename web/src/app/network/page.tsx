@@ -1,8 +1,5 @@
 import { createClient } from '@/core/lib/supabase/server'
 import Link from 'next/link'
-import { Card, CardContent } from '@/core/components/ui/card'
-import { Button } from '@/core/components/ui/button'
-import { User, Gift, HelpCircle, Search, Sparkles } from 'lucide-react'
 import MemberList from '@/modules/m01-network/MemberList'
 import { computeMatch, type Bio, type MatchResult } from '@/modules/m01-network/lib/match-score'
 
@@ -47,7 +44,6 @@ export default async function NetworkDashboard() {
       ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Explorer'
       : null
 
-    // Merge location from user_profiles into Bio objects so computeMatch can use it.
     myBio = myBioRes.data ? { ...myBioRes.data, city: profile?.city, country: profile?.country } as Bio : null
     const profileLocById = new Map<string, { city?: string | null; country?: string | null }>()
     for (const p of allProfilesRes.data ?? []) profileLocById.set(p.id, { city: p.city, country: p.country })
@@ -72,163 +68,238 @@ export default async function NetworkDashboard() {
     }
   }
 
-  const stats = user
-    ? [
-        { label: 'Network Members', value: memberCount, icon: User,       description: 'Total members' },
-        { label: 'Active Offers',   value: offersCount, icon: Gift,       description: 'You provide' },
-        { label: 'Active Requests', value: seeksCount,  icon: HelpCircle, description: 'Help you seek' },
-        { label: 'Connections',     value: '—',         icon: Search,     description: 'Coming soon' },
-      ]
-    : [
-        { label: 'Network Members', value: memberCount, icon: User,       description: 'Growing community' },
-        { label: 'Skill Offers',    value: '—',         icon: Gift,       description: 'Sign in to post' },
-        { label: 'Help Requests',   value: '—',         icon: HelpCircle, description: 'Sign in to post' },
-        { label: 'Connections',     value: '—',         icon: Search,     description: 'Coming soon' },
-      ]
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px' }}>
 
-      {!user && (
-        <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0 }}>
-            You're browsing the network as a guest. <strong>Join free</strong> to post your offers, make requests, and connect with people.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href="/auth/signup" style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--accent)', padding: '5px 14px', borderRadius: 20, textDecoration: 'none' }}>
-              Join free
+      {/* ── Page header ── */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
+          M01 · Community Network
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+              {user && displayName ? `${greeting}, ${displayName}.` : 'Community Network'}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+              {user
+                ? <>You're connected with <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{memberCount}</span> member{memberCount !== 1 ? 's' : ''} building regenerative neighborhoods.</>
+                : 'Browse the people building regenerative neighborhoods.'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+            <Link href="/network/discover" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', background: 'var(--surface)' }}>
+              Search network
             </Link>
-            <Link href="/auth/login" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', padding: '5px 4px' }}>
+            {user && (
+              <Link href="/network/matches" style={{ fontSize: 13, fontWeight: 700, color: '#fff', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', background: 'var(--m1)' }}>
+                See your matches →
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Guest CTA banner ── */}
+      {!user && (
+        <div style={{
+          background: 'color-mix(in srgb, var(--m1) 6%, var(--surface))',
+          border: '1px dashed color-mix(in srgb, var(--m1) 30%, var(--rule))',
+          borderRadius: 10, padding: '14px 18px', marginBottom: 22,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color: 'var(--m1)', letterSpacing: '0.08em', marginBottom: 4 }}>
+              BROWSING AS GUEST
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              Join free to post your offers, make requests, and unlock match scoring.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <Link href="/auth/login" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none' }}>
               Sign in
             </Link>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {user && displayName ? `Welcome back, ${displayName}!` : 'Community Network'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {user ? "Here's what's happening in your regenerative network" : 'Browse the people building regenerative neighborhoods'}
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/network/discover"><Search className="mr-2 h-4 w-4" />Explore Network</Link>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(stat => (
-          <Card key={stat.label} className="border-card-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {user && (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Sparkles style={{ width: 16, height: 16, color: 'var(--m1)' }} />
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-                Your Matches
-              </span>
-            </div>
-            <Link href="/network/matches" style={{ fontSize: 12.5, color: 'var(--m1)', fontWeight: 600, textDecoration: 'none' }}>
-              See all →
+            <Link href="/auth/signup" style={{ fontSize: 13, fontWeight: 700, color: '#fff', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', background: 'var(--m1)' }}>
+              Join free
             </Link>
           </div>
-
-          {!myBio ? (
-            <div style={{
-              background: 'color-mix(in srgb, var(--m1) 6%, var(--surface))',
-              border: '1px solid color-mix(in srgb, var(--m1) 25%, var(--rule))',
-              borderRadius: 12, padding: '16px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
-            }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>Complete your profile to unlock matches</p>
-                <p style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }}>Add your skills, values, and personality to find the people most aligned with you.</p>
-              </div>
-              <Link href="/profile/edit" style={{
-                background: 'var(--m1)', color: '#fff', fontSize: 13, fontWeight: 600,
-                padding: '8px 18px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>
-                Complete profile →
-              </Link>
-            </div>
-          ) : topMatches.length === 0 ? (
-            <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
-              No other members yet — you'll be first when they join.
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
-              {topMatches.map(({ profile: p, score, reasons }) => {
-                const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
-                const init = name[0]?.toUpperCase() ?? '?'
-                const loc = [p.city, p.country].filter(Boolean).join(', ')
-                const scoreColor = score >= 70 ? 'var(--m5)' : score >= 40 ? '#f59e0b' : 'var(--ink-4)'
-                return (
-                  <Link key={p.id} href={`/u/${p.username}`} style={{ textDecoration: 'none' }}>
-                    <div style={{
-                      background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 12,
-                      padding: '16px', display: 'flex', flexDirection: 'column', gap: 10,
-                      transition: 'box-shadow 120ms, transform 120ms',
-                    }} className="hover-elevate">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 44, height: 44, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-                          background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '2px solid var(--rule)',
-                        }}>
-                          {p.avatar_url
-                            ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)' }}>{init}</span>
-                          }
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-                          {loc && <p style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc}</p>}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                          <Sparkles style={{ width: 11, height: 11, color: scoreColor }} />
-                          <span style={{ fontSize: 15, fontWeight: 700, color: scoreColor }}>{score}%</span>
-                        </div>
-                      </div>
-                      {reasons.length > 0 && (
-                        <p style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.4 }}>
-                          {reasons.slice(0, 2).join(' · ')}
-                        </p>
-                      )}
-                      {(p.user_types ?? []).length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {(p.user_types as string[]).slice(0, 2).map((t: string) => (
-                            <span key={t} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg-2)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>{t}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
         </div>
       )}
 
-      <MemberList members={recentUsers} matchScores={recentMatchScores} />
+      {/* ── Stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 22 }}>
+        <StatCard label="Members" value={String(memberCount)} delta="across the network" href="/network/discover" />
+        <StatCard
+          label="Your offers"
+          value={user ? String(offersCount) : '—'}
+          delta={user ? (offersCount > 0 ? 'live on your profile' : 'add some') : 'sign in to post'}
+          href={user ? '/network/offers' : '/auth/signup'}
+        />
+        <StatCard
+          label="Your seeks"
+          value={user ? String(seeksCount) : '—'}
+          delta={user ? (seeksCount > 0 ? 'live on your profile' : 'add some') : 'sign in to post'}
+          href={user ? '/network/seeks' : '/auth/signup'}
+        />
+        <StatCard
+          label="Top match"
+          value={user && topMatches.length > 0 ? `${topMatches[0].score}%` : '—'}
+          delta={user
+            ? (topMatches.length > 0
+                ? ([topMatches[0].profile.first_name, topMatches[0].profile.last_name].filter(Boolean).join(' ') || topMatches[0].profile.username)
+                : 'complete profile to unlock')
+            : 'sign in to see'}
+          deltaColor={user && topMatches.length > 0 ? 'var(--m1)' : undefined}
+          href={user ? '/network/matches' : '/auth/signup'}
+        />
+      </div>
+
+      {/* ── Your matches strip (logged-in only) ── */}
+      {user && (
+        <section style={{ marginBottom: 22 }}>
+          <SectionHeader label="Your matches" actionHref="/network/matches" actionLabel="See all →" />
+          {!myBio ? (
+            <NextStepCard
+              eyebrow="GET MATCHED"
+              title="Complete your profile to unlock matches"
+              body="Add your skills, values, and personality so we can find the people most aligned with you."
+              ctaLabel="Complete profile →"
+              ctaHref="/profile/edit"
+              color="var(--m1)"
+            />
+          ) : topMatches.length === 0 ? (
+            <EmptyCard text="No other members yet — you'll be the first when they join." />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              {topMatches.map(({ profile: p, score, reasons }) => (
+                <MatchCard key={p.id} profile={p} score={score} reasons={reasons} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Members section ── */}
+      <section>
+        <MemberList members={recentUsers} matchScores={recentMatchScores} />
+      </section>
     </div>
+  )
+}
+
+/* ── Helpers ── */
+
+function StatCard({ label, value, delta, deltaColor, href }: {
+  label: string; value: string; delta: string; deltaColor?: string; href?: string
+}) {
+  const inner = (
+    <div className={href ? 'dash-stat-card dash-stat-card--link' : 'dash-stat-card'}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-4)', marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', lineHeight: 1, marginBottom: 4 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11.5, color: deltaColor ?? 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {delta}
+      </div>
+    </div>
+  )
+  if (href) return <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>
+  return inner
+}
+
+function SectionHeader({ label, actionHref, actionLabel }: {
+  label: string; actionHref?: string; actionLabel?: string
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+        {label}
+      </span>
+      {actionHref && actionLabel && (
+        <Link href={actionHref} style={{ fontSize: 12.5, color: 'var(--m1)', fontWeight: 600, textDecoration: 'none' }}>
+          {actionLabel}
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function NextStepCard({ eyebrow, title, body, ctaLabel, ctaHref, color }: {
+  eyebrow: string; title: string; body: string; ctaLabel: string; ctaHref: string; color: string
+}) {
+  return (
+    <div style={{
+      background: `color-mix(in srgb, ${color} 6%, var(--surface))`,
+      border: `1px dashed color-mix(in srgb, ${color} 30%, var(--rule))`,
+      borderRadius: 10, padding: '16px 18px',
+    }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color, letterSpacing: '0.08em', marginBottom: 5 }}>
+        {eyebrow}
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>{title}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 12 }}>{body}</div>
+      <Link href={ctaHref} style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#fff', background: color, padding: '8px 16px', borderRadius: 8, textDecoration: 'none' }}>
+        {ctaLabel}
+      </Link>
+    </div>
+  )
+}
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '20px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
+      {text}
+    </div>
+  )
+}
+
+function MatchCard({ profile: p, score, reasons }: {
+  profile: { id: string; username: string; first_name: string | null; last_name: string | null; avatar_url: string | null; city: string | null; country: string | null; user_types: string[] | null }
+  score: number; reasons: string[]
+}) {
+  const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
+  const init = name[0]?.toUpperCase() ?? '?'
+  const loc = [p.city, p.country].filter(Boolean).join(', ')
+  const scoreColor = score >= 70 ? 'var(--m5)' : score >= 40 ? 'var(--m4)' : 'var(--ink-4)'
+  return (
+    <Link href={`/u/${p.username}`} style={{ textDecoration: 'none' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10,
+        padding: '14px 14px 12px',
+        transition: 'box-shadow 140ms, transform 140ms',
+      }} className="hover-elevate">
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--m1)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, marginBottom: 8 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+            background: 'color-mix(in srgb, var(--m1) 12%, var(--surface))', display: 'grid', placeItems: 'center',
+          }}>
+            {p.avatar_url
+              ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--m1)' }}>{init}</span>
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+            {loc && <div style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc}</div>}
+          </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: scoreColor, flexShrink: 0 }}>
+            {score}%
+          </div>
+        </div>
+        {reasons.length > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.45 }}>
+            {reasons.slice(0, 2).join(' · ')}
+          </div>
+        )}
+      </div>
+    </Link>
   )
 }

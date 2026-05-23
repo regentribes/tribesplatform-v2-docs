@@ -2,6 +2,43 @@
 
 ---
 
+## 2026-05-23 — v3.45 — M01 Members module restyled to match the dashboard + DESIGN-SYSTEM.md
+
+The /network/* pages were a mix of inline styles, shadcn `<Card>`, and Tailwind utility classes — visually inconsistent with the M00 /dashboard page which had a clear, sleek Google-style aesthetic. Brought all M01 pages onto the dashboard's visual language and captured the design rules in a new repo-root doc so future contributors can stay consistent.
+
+### Design system doc
+
+- **New `DESIGN-SYSTEM.md`** at the repo root. Covers:
+  - Design principles (white surfaces / 4-step grey hierarchy / module colors as accents / mono for structure, display for voice)
+  - All tokens from `globals.css` with usage guidance
+  - Reusable component patterns with copy-paste-able code: page header, StatCard, ModCard, eyebrow / section label, activity card, tinted next-step card, avatar, tag chip
+  - Page composition diagram
+  - An explicit "what NOT to do" table (don't use shadcn `<Card>` for layout, don't use Tailwind for page chrome, don't use shadcn Button for module-color CTAs, etc.)
+  - Module-color usage map (when to use `--m1` vs `--m5` vs `--m9`)
+- The canonical reference implementation is `web/src/modules/m00-dashboard/DashboardPage.tsx`. Second reference is the now-restyled `web/src/app/network/page.tsx`.
+
+### M01 pages restyled
+
+- **`/network` (NetworkDashboard)** — completely rewritten. New page header with M01 eyebrow + greeting heading. 4 stat cards (Members / Your offers / Your seeks / Top match). "Your matches" strip with 3px module-color stripe cards. Member list inherited from existing `MemberList`.
+- **`/network/matches`** — completely rewritten. Stat cards for top/good/potential counts. New `MatchesTabs` component: replaced shadcn `<Tabs>` with a segmented pill-style tab bar. Match cards now have a 3px score-progress bar showing compatibility visually. New `HowItWorksCard` with all 7 scoring dimensions listed in mono.
+- **`/network/discover` (DiscoverClient)** — replaced shadcn `<Card>` / `<Badge>` / `<Button>` with inline-style cards. Kept shadcn `<Input>` and `<Select>` for the search form (those are functional primitives, fine to keep). New filter-chip styling. Empty state matches dashboard pattern.
+- **`/network/offers`** — header + empty state + list cards restyled inline. 3px module-color stripe on each offer card. Dialog form kept as-is.
+- **`/network/seeks`** — same treatment as offers. Urgency level now drives the top-stripe color (urgent = pink, high = yellow, low = grey, default = brown).
+- **`/network/profile`** — header card restyled with the same 3px stripe + avatar + display-font name pattern. Tabs / About / Personality / etc. tab content kept as-is (out of scope for this pass).
+
+### Pattern reuse
+
+All restyled pages use the same patterns:
+- Outer wrapper: `<div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px' }}>` (narrower than dashboard's 1100 because the inner sidebar + right panel already eat ~440px)
+- Eyebrow: mono 10px / 700 weight / 0.1em letter-spaced / uppercase / `var(--ink-4)`
+- Heading: `var(--display)` / `clamp(20px, 3vw, 28px)` / `var(--ink)` / lineHeight 1.1
+- Cards: `var(--surface)` background, `1px solid var(--rule)` border, `10px` radius
+- 3px module-color top stripe on every card (`var(--m1)` for M01 pages)
+- Primary CTAs: `background: var(--m1)`, white text, 8px radius
+- Secondary CTAs: `var(--surface)` background, `1px solid var(--rule)` border
+
+---
+
 ## 2026-05-23 — v3.44 — Version badge on landing page, single VERSION constant, changelog backfill
 
 The version label that lives under the logo (and links to `/changelog`) was only rendered inside the logged-in `AppTopBar`, so guests visiting the public landing page never saw which build they were looking at. Fixed it on the public side, and extracted the version string into one shared module so a bump is one line going forward.

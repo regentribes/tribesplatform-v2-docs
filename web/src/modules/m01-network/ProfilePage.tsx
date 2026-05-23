@@ -109,49 +109,81 @@ export default function NetworkProfilePage() {
   const travels = (bio?.places_traveling ?? []) as any[]
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-      {/* Profile header */}
-      <Card className="border-card-border overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5" />
-        <CardContent className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 mb-4">
-            <label htmlFor="avatar-upload-profile" className="cursor-pointer group relative flex-shrink-0" style={{ width: 80, height: 80 }}>
-              <Avatar className="h-20 w-20 border-4 border-background shadow-md">
-                <AvatarImage src={avatarUrl ?? undefined} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-bold">{initial}</AvatarFallback>
-              </Avatar>
-              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {avatarUploading
-                  ? <Loader2 className="h-5 w-5 text-white animate-spin" />
-                  : <Camera className="h-5 w-5 text-white" />}
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px' }}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
+          M01 · My Profile
+        </div>
+      </div>
+
+      {/* Profile header card */}
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10,
+        padding: '18px 18px 16px', marginBottom: 18,
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--m1)' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+          <label htmlFor="avatar-upload-profile" style={{ cursor: 'pointer', position: 'relative', flexShrink: 0, width: 72, height: 72 }} className="group">
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%', overflow: 'hidden',
+              background: 'color-mix(in srgb, var(--m1) 12%, var(--surface))',
+              border: '2px solid var(--rule)', display: 'grid', placeItems: 'center',
+            }}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--m1)' }}>{initial}</span>
+              }
+            </div>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: avatarUploading ? 1 : 0, transition: 'opacity 120ms',
+            }} className="group-hover:opacity-100">
+              {avatarUploading
+                ? <Loader2 style={{ width: 18, height: 18, color: '#fff' }} className="animate-spin" />
+                : <Camera style={{ width: 18, height: 18, color: '#fff' }} />}
+            </div>
+            <input id="avatar-upload-profile" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
+          </label>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 26px)', color: 'var(--ink)', lineHeight: 1.15, margin: '0 0 2px' }}>
+                  {displayName}
+                </h1>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-4)' }}>@{profile.username}</div>
               </div>
-              <input id="avatar-upload-profile" type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-            </label>
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h1 className="text-xl font-bold">{displayName}</h1>
-                  <p className="text-sm text-muted-foreground">@{profile.username}</p>
-                </div>
-                <Button variant="outline" asChild>
-                  <Link href="/profile/edit"><Pencil className="h-4 w-4 mr-2" />Edit Profile</Link>
-                </Button>
-              </div>
+              <Link href="/profile/edit" style={{
+                fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px',
+                border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none',
+                background: 'var(--surface)', display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+              }}>
+                <Pencil style={{ width: 14, height: 14 }} />
+                Edit profile
+              </Link>
+            </div>
+
+            {profile.headline && (
+              <div style={{ fontSize: 13.5, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{profile.headline}</div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 10 }}>
+              {location && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--ink-4)' }}>
+                  <MapPin style={{ width: 12, height: 12 }} />{location}
+                </span>
+              )}
+              {(profile.user_types ?? []).map((t: string) => (
+                <span key={t} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg-2)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>
+                  {t}
+                </span>
+              ))}
             </div>
           </div>
-          {profile.headline && <p className="text-sm mb-3 font-medium">{profile.headline}</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            {location && (
-              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />{location}
-              </span>
-            )}
-            {(profile.user_types ?? []).map((t: string) => (
-              <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="about" className="w-full">

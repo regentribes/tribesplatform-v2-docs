@@ -104,22 +104,37 @@ export default function OffersPage() {
   }
 
   if (loading) return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
     </div>
   )
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">My Offers</h1>
-          <p className="text-muted-foreground text-sm mt-1">Services, skills, and resources you offer to the community</p>
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 28px 80px' }}>
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
+          M01 · My Offers
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Add Offer</Button>
-          </DialogTrigger>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+              {offers.length === 0 ? 'Share what you offer' : `${offers.length} offer${offers.length !== 1 ? 's' : ''} live`}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+              Services, skills, and resources you offer to the community.
+            </p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <button onClick={openNew} style={{
+                fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)',
+                border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                <Plus style={{ width: 14, height: 14 }} />
+                Add offer
+              </button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editing ? 'Edit Offer' : 'New Offer'}</DialogTitle>
@@ -166,43 +181,60 @@ export default function OffersPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {offers.length === 0 ? (
-        <Card className="border-card-border">
-          <CardContent className="py-16 text-center">
-            <Gift className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No offers yet</h3>
-            <p className="text-muted-foreground mb-4">Share your skills and resources with the community.</p>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Add Your First Offer</Button>
-          </CardContent>
-        </Card>
+        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '40px 24px', textAlign: 'center' }}>
+          <Gift style={{ width: 36, height: 36, color: 'var(--ink-4)', margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>No offers yet</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 14 }}>Share your skills and resources with the community.</div>
+          <button onClick={openNew} style={{
+            fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)',
+            border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+            <Plus style={{ width: 14, height: 14 }} />
+            Add your first offer
+          </button>
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
           {offers.map(o => (
-            <Card key={o.id} className="border-card-border">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{o.title}</CardTitle>
-                  <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(o)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(o.id)} disabled={deletingId === o.id}>
-                      {deletingId === o.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    </Button>
-                  </div>
+            <div key={o.id} style={{
+              position: 'relative', overflow: 'hidden',
+              background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10,
+              padding: '14px 16px',
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--m1)' }} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginTop: 4, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', minWidth: 0, lineHeight: 1.35 }}>
+                  {o.title}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {o.description && <p className="text-sm text-muted-foreground mb-3">{o.description}</p>}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {o.category && <Badge variant="secondary">{o.category}</Badge>}
-                  {o.compensation_model && <Badge variant="outline">{o.compensation_model}</Badge>}
-                  {o.price && <span className="text-sm font-medium">{o.price}</span>}
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => openEdit(o)} aria-label="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 4, display: 'flex' }}>
+                    <Pencil style={{ width: 14, height: 14 }} />
+                  </button>
+                  <button onClick={() => handleDelete(o.id)} disabled={deletingId === o.id} aria-label="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 4, display: 'flex' }}>
+                    {deletingId === o.id ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> : <Trash2 style={{ width: 14, height: 14 }} />}
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              {o.description && <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.5, marginBottom: 10 }}>{o.description}</div>}
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                {o.category && (
+                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg-2)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>
+                    {o.category}
+                  </span>
+                )}
+                {o.compensation_model && (
+                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--surface)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>
+                    {o.compensation_model}
+                  </span>
+                )}
+                {o.price && <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', marginLeft: 'auto' }}>{o.price}</span>}
+              </div>
+            </div>
           ))}
         </div>
       )}

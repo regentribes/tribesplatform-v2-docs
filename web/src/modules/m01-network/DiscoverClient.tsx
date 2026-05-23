@@ -2,23 +2,19 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { computeMatch, type Bio } from '@/modules/m01-network/lib/match-score'
-import { Card, CardContent } from '@/core/components/ui/card'
-import { Badge } from '@/core/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar'
 import { Input } from '@/core/components/ui/input'
-import { Button } from '@/core/components/ui/button'
 import {
   Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue,
 } from '@/core/components/ui/select'
-import { MapPin, Search, Filter, Users, X, Sparkles } from 'lucide-react'
+import { Search, Filter, X } from 'lucide-react'
 
 const ROLE_FILTERS = [
-  { value: 'all',                   label: 'All Types' },
-  { value: 'Exploring',             label: 'Exploring' },
-  { value: 'Community Member',      label: 'Community Member' },
-  { value: 'Vision Holder',         label: 'Vision Holder' },
-  { value: 'Service Provider',      label: 'Service Provider' },
+  { value: 'all',                     label: 'All Types' },
+  { value: 'Exploring',               label: 'Exploring' },
+  { value: 'Community Member',        label: 'Community Member' },
+  { value: 'Vision Holder',           label: 'Vision Holder' },
+  { value: 'Service Provider',        label: 'Service Provider' },
   { value: 'Resource Holder - Land',  label: 'Resource Holder – Land' },
   { value: 'Resource Holder - Money', label: 'Resource Holder – Money' },
 ]
@@ -40,66 +36,6 @@ interface Props {
   bioMap: Record<string, NonNullable<Bio>>
   myBio: Bio
   isLoggedIn: boolean
-}
-
-function UserCard({ profile: p, bio, score, reasons, isLoggedIn }: {
-  profile: Profile; bio: NonNullable<Bio> | null; score: number; reasons: string[]; isLoggedIn: boolean
-}) {
-  const displayName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
-  const initial = displayName[0]?.toUpperCase() ?? '?'
-  const location = [p.city, p.country].filter(Boolean).join(', ')
-
-  return (
-    <Link href={`/u/${p.username}`}>
-      <Card className="border-card-border hover-elevate cursor-pointer h-full">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-4">
-            <Avatar className="h-12 w-12 flex-shrink-0">
-              <AvatarImage src={p.avatar_url ?? undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">{initial}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold truncate">{displayName}</h3>
-                  <p className="text-sm text-muted-foreground">@{p.username}</p>
-                </div>
-                {(p.user_types ?? []).length > 0 && (
-                  <Badge variant="secondary" className="flex-shrink-0 text-xs">
-                    {(p.user_types ?? [])[0]}
-                  </Badge>
-                )}
-              </div>
-              {p.headline && <p className="text-sm mt-1 text-muted-foreground line-clamp-1">{p.headline}</p>}
-              {location && (
-                <span className="flex items-center text-xs text-muted-foreground mt-2">
-                  <MapPin className="mr-1 h-3 w-3" />{location}
-                </span>
-              )}
-              {bio && (bio.skills ?? []).length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-3">
-                  {(bio.skills ?? []).slice(0, 3).map((s: string) => (
-                    <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
-                  ))}
-                  {(bio.skills ?? []).length > 3 && (
-                    <Badge variant="outline" className="text-xs">+{(bio.skills ?? []).length - 3}</Badge>
-                  )}
-                </div>
-              )}
-              {isLoggedIn && (
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-                  <p className="text-xs text-muted-foreground truncate">{reasons[0] ?? 'No overlap yet'}</p>
-                  <span className={`text-sm font-bold shrink-0 ml-2 ${score >= 60 ? 'text-primary' : score >= 30 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                    {score}%
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
 }
 
 export default function DiscoverClient({ profiles, bioMap, myBio, isLoggedIn }: Props) {
@@ -141,88 +77,221 @@ export default function DiscoverClient({ profiles, bioMap, myBio, isLoggedIn }: 
   const clearFilters = () => { setSearchQuery(''); setDebouncedQuery(''); setRoleFilter('all') }
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Search the Network</h1>
-        <p className="text-muted-foreground mt-1">Find like-minded people by values, skills, personality, interests, and more</p>
+    <div style={{ maxWidth: 980, margin: '0 auto', padding: '28px 28px 80px' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
+          M01 · Search the Network
+        </div>
+        <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+          Find your people.
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+          Search by values, skills, personality, interests, location.
+        </p>
       </div>
 
-      <Card className="border-card-border">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="Search by name, location, skills, interests..."
-                className="pl-10" />
-            </div>
-            <div className="flex gap-2">
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_FILTERS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleSearch}>Search</Button>
-            </div>
+      {/* Search + filter */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px', marginBottom: 18 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 0 }}>
+            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--ink-4)' }} />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="name, skill, interest, location…"
+              style={{ paddingLeft: 34 }}
+            />
           </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger style={{ width: 200, fontSize: 13 }}>
+              <Filter style={{ width: 14, height: 14, marginRight: 6, color: 'var(--ink-4)' }} />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_FILTERS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <button onClick={handleSearch} style={{
+            fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)',
+            border: 'none', padding: '0 18px', borderRadius: 8, cursor: 'pointer',
+          }}>
+            Search
+          </button>
+        </div>
 
-          {hasFilters && (
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border flex-wrap">
-              <span className="text-sm text-muted-foreground">Active filters:</span>
-              {debouncedQuery && (
-                <Badge variant="secondary" className="gap-1">
-                  "{debouncedQuery}"
-                  <button onClick={() => { setSearchQuery(''); setDebouncedQuery('') }}><X className="h-3 w-3" /></button>
-                </Badge>
-              )}
-              {roleFilter !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  {ROLE_FILTERS.find(r => r.value === roleFilter)?.label}
-                  <button onClick={() => setRoleFilter('all')}><X className="h-3 w-3" /></button>
-                </Badge>
-              )}
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Clear all</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {hasFilters && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--rule)', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+              Filters
+            </span>
+            {debouncedQuery && (
+              <FilterChip onClear={() => { setSearchQuery(''); setDebouncedQuery('') }}>
+                "{debouncedQuery}"
+              </FilterChip>
+            )}
+            {roleFilter !== 'all' && (
+              <FilterChip onClear={() => setRoleFilter('all')}>
+                {ROLE_FILTERS.find(r => r.value === roleFilter)?.label}
+              </FilterChip>
+            )}
+            <button onClick={clearFilters} style={{
+              fontSize: 12, color: 'var(--ink-3)', background: 'none', border: 'none',
+              cursor: 'pointer', textDecoration: 'underline', padding: 0,
+            }}>
+              Clear all
+            </button>
+          </div>
+        )}
+      </div>
 
+      {/* Results count + grid */}
       {members.length > 0 ? (
         <>
-          <p className="text-sm text-muted-foreground">{members.length} result{members.length !== 1 ? 's' : ''} found</p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 10 }}>
+            {members.length} result{members.length !== 1 ? 's' : ''}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
             {members.map(({ profile: p, bio, score, reasons }) => (
               <UserCard key={p.id} profile={p} bio={bio} score={score} reasons={reasons} isLoggedIn={isLoggedIn} />
             ))}
           </div>
         </>
       ) : (
-        <Card className="border-card-border">
-          <CardContent className="py-16 text-center">
-            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No members found</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              {hasFilters ? 'Try adjusting your search terms or filters.' : 'Be the first to complete your profile and start building the network!'}
-            </p>
-            {hasFilters && <Button variant="outline" className="mt-4" onClick={clearFilters}>Clear Filters</Button>}
-          </CardContent>
-        </Card>
+        <EmptyResult hasFilters={hasFilters} onClear={clearFilters} />
       )}
 
       {!isLoggedIn && (
-        <Card className="border-card-border bg-primary/5 border-primary/20">
-          <CardContent className="py-10 text-center space-y-3">
-            <Sparkles className="h-10 w-10 text-primary mx-auto" />
-            <p className="font-semibold text-lg">Join to see compatibility scores</p>
-            <p className="text-sm text-muted-foreground">Create a profile to discover your best community matches.</p>
-            <Button asChild><Link href="/auth/login">Create profile</Link></Button>
-          </CardContent>
-        </Card>
+        <div style={{
+          marginTop: 22,
+          background: 'color-mix(in srgb, var(--m1) 6%, var(--surface))',
+          border: '1px dashed color-mix(in srgb, var(--m1) 30%, var(--rule))',
+          borderRadius: 10, padding: '16px 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color: 'var(--m1)', letterSpacing: '0.08em', marginBottom: 4 }}>
+              SIGN IN TO UNLOCK
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>Match scores show up next to every result once you sign in.</div>
+          </div>
+          <Link href="/auth/signup" style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m1)', padding: '8px 16px', borderRadius: 8, textDecoration: 'none', flexShrink: 0 }}>
+            Join free →
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterChip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 12, padding: '3px 4px 3px 9px', borderRadius: 20,
+      background: 'var(--bg-2)', color: 'var(--ink-2)', border: '1px solid var(--rule)',
+    }}>
+      {children}
+      <button onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 2, color: 'var(--ink-4)' }} aria-label="Remove filter">
+        <X style={{ width: 11, height: 11 }} />
+      </button>
+    </span>
+  )
+}
+
+function UserCard({ profile: p, bio, score, reasons, isLoggedIn }: {
+  profile: Profile; bio: NonNullable<Bio> | null; score: number; reasons: string[]; isLoggedIn: boolean
+}) {
+  const displayName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
+  const initial = displayName[0]?.toUpperCase() ?? '?'
+  const location = [p.city, p.country].filter(Boolean).join(', ')
+  const scoreColor = score >= 70 ? 'var(--m5)' : score >= 40 ? 'var(--m4)' : 'var(--ink-4)'
+
+  return (
+    <Link href={`/u/${p.username}`} style={{ textDecoration: 'none' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10,
+        padding: '14px 14px 12px',
+        transition: 'box-shadow 140ms, transform 140ms',
+      }} className="hover-elevate">
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--m1)' }} />
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 4, marginBottom: 8 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+            background: 'color-mix(in srgb, var(--m1) 12%, var(--surface))', display: 'grid', placeItems: 'center',
+          }}>
+            {p.avatar_url
+              ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--m1)' }}>{initial}</span>
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {displayName}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              @{p.username}
+            </div>
+          </div>
+          {isLoggedIn && (
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: scoreColor, flexShrink: 0 }}>
+              {score}%
+            </div>
+          )}
+        </div>
+
+        {p.headline && (
+          <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.45, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            {p.headline}
+          </div>
+        )}
+
+        {location && (
+          <div style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 8 }}>📍 {location}</div>
+        )}
+
+        {bio && (bio.skills ?? []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: isLoggedIn && reasons.length > 0 ? 8 : 0 }}>
+            {(bio.skills ?? []).slice(0, 3).map(s => (
+              <span key={s} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg-2)', color: 'var(--ink-3)', border: '1px solid var(--rule)' }}>{s}</span>
+            ))}
+            {(bio.skills ?? []).length > 3 && (
+              <span style={{ fontSize: 10, color: 'var(--ink-4)', alignSelf: 'center' }}>+{(bio.skills ?? []).length - 3}</span>
+            )}
+          </div>
+        )}
+
+        {isLoggedIn && reasons.length > 0 && (
+          <div style={{ paddingTop: 8, borderTop: '1px solid var(--rule)', fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {reasons[0]}
+          </div>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function EmptyResult({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
+  return (
+    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink-4)', marginBottom: 8 }}>
+        NO RESULTS
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>No members found</div>
+      <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5, maxWidth: 360, margin: '0 auto 14px' }}>
+        {hasFilters ? 'Try adjusting your search terms or filters.' : 'Be the first to complete your profile and start building the network!'}
+      </div>
+      {hasFilters && (
+        <button onClick={onClear} style={{
+          fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', background: 'var(--surface)',
+          border: '1px solid var(--rule)', padding: '7px 16px', borderRadius: 8, cursor: 'pointer',
+        }}>
+          Clear filters
+        </button>
       )}
     </div>
   )
