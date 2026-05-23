@@ -31,13 +31,18 @@ Profile-based member discovery with AI-powered compatibility matching. Members p
 
 `lib/match-score.ts` exports `computeMatch(myBio, theirBio)` which returns `{ score: number, reasons: string[] }`.
 
-| Dimension | Max points |
-|-----------|------------|
-| Shared skills | 30 (5 per skill, up to 6) |
-| Shared interests | 20 (4 per interest, up to 5) |
-| OCEAN similarity | 25 |
-| MBTI compatibility | 25 |
-| **Total** | **100** |
+| Dimension | Max points | Notes |
+|---|---|---|
+| Shared skills | 25 | 5/match, fuzzy (Levenshtein ≥80%) — tolerates typos and minor wording differences |
+| Shared interests | 15 | 3/match, fuzzy |
+| OCEAN similarity | 20 | Average abs-diff across 5 traits |
+| MBTI compatibility | 20 | Curated ideal-pair table + temperament fallback |
+| Location proximity | 5 | Country + city, fuzzy. City+country = 5, country only = 3 |
+| Travel overlap | 10 | Same destination with overlapping dates = 10, within 30 days = 6, same destination alone = 4 |
+| Aligned goals | 5 | Shared regenerative keywords in `goals` (`community`, `regenerative`, `sustainable`, `permaculture`, `nature`, `spiritual`) |
+| **Total** | **100** | |
+
+Callers must merge `city` and `country` from `user_profiles` onto the bio object before calling — those fields don't live on `user_bio`. See `web/src/app/network/page.tsx` for the pattern.
 
 ## Database tables
 

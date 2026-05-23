@@ -34,10 +34,13 @@ export default async function MatchesPage() {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>We analyze multiple dimensions to find your best matches:</p>
             <ul className="list-disc list-inside space-y-1 mt-2">
-              <li><strong>Shared Skills</strong> — up to 30 pts (5 each)</li>
-              <li><strong>Shared Interests</strong> — up to 20 pts (4 each)</li>
-              <li><strong>OCEAN Similarity</strong> — up to 25 pts</li>
-              <li><strong>MBTI Compatibility</strong> — up to 25 pts</li>
+              <li><strong>Shared Skills</strong> — up to 25 pts (fuzzy, allows typos)</li>
+              <li><strong>Shared Interests</strong> — up to 15 pts (fuzzy)</li>
+              <li><strong>OCEAN Similarity</strong> — up to 20 pts</li>
+              <li><strong>MBTI Compatibility</strong> — up to 20 pts</li>
+              <li><strong>Location proximity</strong> — up to 5 pts (city + country)</li>
+              <li><strong>Travel overlap</strong> — up to 10 pts (same place, same time)</li>
+              <li><strong>Aligned goals</strong> — up to 5 pts (regenerative-keyword overlap)</li>
             </ul>
           </CardContent>
         </Card>
@@ -45,18 +48,27 @@ export default async function MatchesPage() {
     )
   }
 
-  const [profilesRes, biosRes, myBioRes] = await Promise.all([
+  const [profilesRes, biosRes, myProfileRes, myBioRes] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('id, username, first_name, last_name, city, country, avatar_url, user_types')
       .neq('id', user.id),
     supabase.from('user_bio').select('*'),
+    supabase.from('user_profiles').select('city, country').eq('id', user.id).maybeSingle(),
     supabase.from('user_bio').select('*').eq('user_id', user.id).maybeSingle(),
   ])
 
+  // Merge city/country from user_profiles into bios so computeMatch can score location.
   const myBio = myBioRes.data
+    ? { ...myBioRes.data, city: myProfileRes.data?.city, country: myProfileRes.data?.country }
+    : null
+  const profileLocById = new Map<string, { city?: string | null; country?: string | null }>()
+  for (const p of profilesRes.data ?? []) profileLocById.set(p.id, { city: p.city, country: p.country })
   const bioMap: Record<string, any> = {}
-  for (const b of biosRes.data ?? []) bioMap[b.user_id] = b
+  for (const b of biosRes.data ?? []) {
+    const loc = profileLocById.get(b.user_id) ?? {}
+    bioMap[b.user_id] = { ...b, city: loc.city, country: loc.country }
+  }
 
   const matches = (profilesRes.data ?? [])
     .map(p => {
@@ -94,10 +106,13 @@ export default async function MatchesPage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>We analyze multiple dimensions to find your best matches:</p>
           <ul className="list-disc list-inside space-y-1 mt-2">
-            <li><strong>Shared Skills</strong> — up to 30 pts (5 each)</li>
-            <li><strong>Shared Interests</strong> — up to 20 pts (4 each)</li>
-            <li><strong>OCEAN Similarity</strong> — up to 25 pts</li>
-            <li><strong>MBTI Compatibility</strong> — up to 25 pts</li>
+            <li><strong>Shared Skills</strong> — up to 25 pts (fuzzy, allows typos)</li>
+            <li><strong>Shared Interests</strong> — up to 15 pts (fuzzy)</li>
+            <li><strong>OCEAN Similarity</strong> — up to 20 pts</li>
+            <li><strong>MBTI Compatibility</strong> — up to 20 pts</li>
+            <li><strong>Location proximity</strong> — up to 5 pts (city + country)</li>
+            <li><strong>Travel overlap</strong> — up to 10 pts (same place, same time)</li>
+            <li><strong>Aligned goals</strong> — up to 5 pts (regenerative-keyword overlap)</li>
           </ul>
         </CardContent>
       </Card>

@@ -32,7 +32,7 @@ export default async function NetworkDashboard() {
     const [offersRes, seeksRes, profileRes, allProfilesRes, allBiosRes, myBioRes] = await Promise.all([
       supabase.from('user_offers').select('id').eq('user_id', user.id),
       supabase.from('user_requests').select('id').eq('user_id', user.id),
-      supabase.from('user_profiles').select('first_name, last_name').eq('id', user.id).maybeSingle(),
+      supabase.from('user_profiles').select('first_name, last_name, city, country').eq('id', user.id).maybeSingle(),
       supabase.from('user_profiles')
         .select('id, username, first_name, last_name, avatar_url, city, country, user_types')
         .neq('id', user.id),
@@ -47,9 +47,15 @@ export default async function NetworkDashboard() {
       ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Explorer'
       : null
 
-    myBio = myBioRes.data ?? null
+    // Merge location from user_profiles into Bio objects so computeMatch can use it.
+    myBio = myBioRes.data ? { ...myBioRes.data, city: profile?.city, country: profile?.country } as Bio : null
+    const profileLocById = new Map<string, { city?: string | null; country?: string | null }>()
+    for (const p of allProfilesRes.data ?? []) profileLocById.set(p.id, { city: p.city, country: p.country })
     const bioMap: Record<string, Bio> = {}
-    for (const b of allBiosRes.data ?? []) bioMap[b.user_id] = b as Bio
+    for (const b of allBiosRes.data ?? []) {
+      const loc = profileLocById.get(b.user_id) ?? {}
+      bioMap[b.user_id] = { ...b, city: loc.city, country: loc.country } as Bio
+    }
 
     topMatches = (allProfilesRes.data ?? [])
       .map(p => {

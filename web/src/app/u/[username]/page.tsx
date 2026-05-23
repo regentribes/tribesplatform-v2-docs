@@ -14,8 +14,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   // Profile being viewed + viewer's own data (for sidebar/right panel) fetched in parallel
   const [profileRes, viewerProfileRes, viewerBioRes, viewerOffersRes, viewerRequestsRes] = await Promise.all([
     supabase.from('user_profiles').select('*').eq('username', username).maybeSingle(),
-    user ? supabase.from('user_profiles').select('username, avatar_url, first_name, headline').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-    user ? supabase.from('user_bio').select('values_principles, skills, interests, goals, personality_details').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+    user ? supabase.from('user_profiles').select('username, avatar_url, first_name, headline, city, country').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+    user ? supabase.from('user_bio').select('values_principles, skills, interests, goals, places_traveling, personality_details').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
     user ? supabase.from('user_offers').select('id').eq('user_id', user.id) : Promise.resolve({ data: null }),
     user ? supabase.from('user_requests').select('id').eq('user_id', user.id) : Promise.resolve({ data: null }),
   ])
@@ -29,10 +29,17 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     supabase.from('user_requests').select('*').eq('user_id', profile.id).eq('is_active', true),
   ])
 
-  // Compute match score between viewer and profile being viewed
+  // Compute match score between viewer and profile being viewed.
+  // Merge city/country from each user_profile so the match function can score location proximity.
   const isOwn = user?.id === profile.id
-  const match = (!isOwn && user && viewerBioRes.data && bioRes.data)
-    ? computeMatch(viewerBioRes.data as any, bioRes.data as any)
+  const viewerBioWithLoc = viewerBioRes.data && viewerProfileRes.data
+    ? { ...viewerBioRes.data, city: (viewerProfileRes.data as any).city, country: (viewerProfileRes.data as any).country }
+    : viewerBioRes.data
+  const subjectBioWithLoc = bioRes.data
+    ? { ...bioRes.data, city: (profile as any).city, country: (profile as any).country }
+    : null
+  const match = (!isOwn && user && viewerBioWithLoc && subjectBioWithLoc)
+    ? computeMatch(viewerBioWithLoc as any, subjectBioWithLoc as any)
     : null
 
   // Build sidebar + right panel data from the viewer's own profile

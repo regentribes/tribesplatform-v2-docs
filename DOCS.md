@@ -2,7 +2,7 @@
 
 Every explainer / README file in this repo, with what it's for and who should read it. If you're looking for something specific, this is the map.
 
-> Last updated: 2026-05-23 (v3.41) — removed stale `AiNSP_RnDev.md` / `techstack_AiNSP_RnDev.md`; their content was merged into EXECUTIVE-SUMMARY (service/revenue model) and ARCHITECTURE §12 (planned agent architecture).
+> Last updated: 2026-05-23 (v3.41) — removed stale `AiNSP_RnDev.md` / `techstack_AiNSP_RnDev.md` (content merged into EXECUTIVE-SUMMARY + ARCHITECTURE §12); removed `archive/Modules/MycoNetv1.0/` v1 dump (matching enhancements ported to `web/src/modules/m01-network/lib/match-score.ts`).
 
 ---
 
@@ -58,7 +58,6 @@ Each module is self-contained. Start with the module's README before touching it
 | `archive/Modules/m1_comm_network/` | Original standalone Next.js v1 of the Community Network module (deployed to Vercel before the v2 consolidation). |
 | `archive/Modules/m4_framework_wizard/` | Original standalone CDN-React framework wizard + the full source framework documents (RNF, RCOS, CLIPS, Community Alchemy Playbook). |
 | `archive/Modules/design_handoff_portal_explainer/` | Design references for a future Welcome / Portal Explainer page. |
-| `archive/Modules/MycoNetv1.0/` | v1 spec docs and attached assets. |
 
 ---
 

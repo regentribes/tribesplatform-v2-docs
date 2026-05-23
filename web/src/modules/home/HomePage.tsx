@@ -56,7 +56,7 @@ export default async function HomePage() {
   if (user) {
     const memberIds = (membersRes.data ?? []).map((m: any) => m.id)
     const [profileRes, appRes, myBioRes, memberBiosRes] = await Promise.all([
-      supabase.from('user_profiles').select('first_name, role').eq('id', user.id).maybeSingle(),
+      supabase.from('user_profiles').select('first_name, role, city, country').eq('id', user.id).maybeSingle(),
       supabase.from('applications').select('status').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_bio').select('*').eq('user_id', user.id).maybeSingle(),
       memberIds.length > 0
@@ -77,9 +77,15 @@ export default async function HomePage() {
       joiningRewardNew = !error
     }
 
-    const myBio = myBioRes.data ?? null
+    // Merge city/country from user_profiles into bios so computeMatch can score location.
+    const myBio = myBioRes.data
+      ? { ...myBioRes.data, city: profileRes.data?.city, country: profileRes.data?.country }
+      : null
+    const memberLocById = new Map<string, { city?: string | null; country?: string | null }>()
+    for (const m of (membersRes.data ?? []) as any[]) memberLocById.set(m.id, { city: m.city, country: m.country })
     for (const b of (memberBiosRes as any).data ?? []) {
-      matchScores[b.user_id] = computeMatch(myBio, b)
+      const loc = memberLocById.get(b.user_id) ?? {}
+      matchScores[b.user_id] = computeMatch(myBio as any, { ...b, city: loc.city, country: loc.country })
     }
   }
 
