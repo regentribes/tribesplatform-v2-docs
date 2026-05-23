@@ -50,6 +50,7 @@ Each document serves a different purpose. Read them in order.
 ## Links
 
 - **Live Platform:** https://myconet.correa-oscar11.workers.dev
+- **Changelog:** https://myconet.correa-oscar11.workers.dev/changelog — full release history (every shipped version with what changed and why). Source: [`web/src/app/changelog/page.tsx`](./web/src/app/changelog/page.tsx).
 
 ## Status
 
