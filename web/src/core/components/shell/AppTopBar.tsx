@@ -5,6 +5,7 @@ import { createClient } from '@/core/lib/supabase/client'
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useProfileCompletion } from '@/core/contexts/ProfileCompletion'
+import { VERSION } from '@/core/lib/version'
 
 function computeCompletion(
   p: { first_name?: string | null; avatar_url?: string | null; headline?: string | null; city?: string | null; user_types?: string[] | null } | null,
@@ -184,7 +185,7 @@ export default function AppTopBar({ onMobileNavToggle, mobileNavOpen }: {
           <Link href="/changelog" style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '0.06em', textDecoration: 'none' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink-2)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-4)')}>
-            v3.43
+            {VERSION}
           </Link>
         </div>
       </Link>

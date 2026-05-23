@@ -2,6 +2,17 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.44',
+    date: '2026-05-23',
+    title: 'Version badge on the public landing page + single source of truth for the version string',
+    items: [
+      'The version label under the logo (which links to this changelog) now also shows on the public landing page (logged-out view at /). Previously it only appeared inside the logged-in AppTopBar.',
+      'Extracted VERSION into core/lib/version.ts — single source of truth used by both AppTopBar (logged-in) and the landing TopBar (logged-out). Bumping the version is now a one-line change.',
+      'Also backfilled three missing changelog entries from the project\'s history: v3.06, v3.07, v3.21 (see below).',
+      'Added a Changelog link to the repo README\'s Links section pointing to the live /changelog page + the source file.',
+    ],
+  },
+  {
     version: 'v3.43',
     date: '2026-05-23',
     title: 'M01 shell consistency — every /network/* page now has the module sidebar + right panel',

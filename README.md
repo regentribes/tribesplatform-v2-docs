@@ -54,4 +54,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.43 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 shell consistency (every /network/* page now wraps in the same module sidebar + right panel as /u/[username]; M01 stays highlighted on profile pages).
+🟢 **v3.44 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: version badge now shows on the public landing page too, single source-of-truth for the version string (`core/lib/version.ts`), changelog backfilled with v3.06 / v3.07 / v3.21.

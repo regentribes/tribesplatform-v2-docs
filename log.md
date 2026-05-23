@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-05-23 — v3.44 — Version badge on landing page, single VERSION constant, changelog backfill
+
+The version label that lives under the logo (and links to `/changelog`) was only rendered inside the logged-in `AppTopBar`, so guests visiting the public landing page never saw which build they were looking at. Fixed it on the public side, and extracted the version string into one shared module so a bump is one line going forward.
+
+### What changed
+
+- **New `web/src/core/lib/version.ts`** — exports a single `VERSION` constant. Used by both `AppTopBar` (logged-in shell) and `LandingClient` (public landing page).
+- **`LandingClient.tsx`** — the existing `<TopBar>` now renders the version badge directly under the "MyCoNet" wordmark, styled to match the AppTopBar treatment (mono font, 9px, ink-4 color, links to `/changelog`).
+- **Changelog backfill** — restored three missing entries from the project's git history that had rolled into adjacent releases without their own row: **v3.06** (May 14 — profile image upload, public blueprint, dashboard live metrics), **v3.07** (May 15 — network experience polish + guest browsing), **v3.21** (May 22 — clickable stat cards + active nav highlight + live governance counts).
+- **README.md** — added a Changelog link to the Links section pointing to `https://myconet.correa-oscar11.workers.dev/changelog` + the source file path.
+
+---
+
 ## 2026-05-23 — v3.43 — M01 shell consistency across all /network/* and /u/* pages
 
 The `/network` dashboard had a different layout than `/u/[username]` — flat centered content vs. a three-column shell with the M01 sidebar and right panel. Same module, two different experiences. Fixed by promoting the shell to a Next.js layout so every /network/* child gets it for free, and updated the outer module nav to keep M01 highlighted on user-profile pages too.

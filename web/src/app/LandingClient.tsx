@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
+import { VERSION } from '@/core/lib/version'
 import './landing.css'
 
 interface Props { firstName: string | null }
@@ -108,7 +109,17 @@ function TopBar({ name }: { name: string | null }) {
       <div className="lp-topbar-inner">
         <a className="lp-logo" href="#welcome">
           <span className="lp-logo-mark" />
-          <span>MyCoNet</span>
+          <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1 }}>
+            <span>MyCoNet</span>
+            <Link href="/changelog" style={{
+              fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600,
+              color: 'var(--ink-4)', letterSpacing: '0.06em',
+              textDecoration: 'none', marginTop: 3,
+            }}
+              onClick={e => e.stopPropagation()}>
+              {VERSION}
+            </Link>
+          </span>
         </a>
         <nav className="lp-topnav">
           <a className="lp-topnav-link is-current" href="#welcome">Welcome</a>
