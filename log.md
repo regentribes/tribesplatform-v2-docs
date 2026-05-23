@@ -2,6 +2,55 @@
 
 ---
 
+## 2026-05-23 — v3.42 — M01 matching v2, root docs consolidation
+
+Ported the high-value matching dimensions from the v1 Replit prototype into the v2 codebase, then dropped the v1 dump entirely. Also consolidated two stale root planning docs into the canonical EXECUTIVE-SUMMARY and ARCHITECTURE files, and caught up two leftover items from the v3.22 CLEANUP sprint.
+
+### M01 — Match scoring v2
+
+`web/src/modules/m01-network/lib/match-score.ts` now scores across **7 dimensions** (was 4), still summing to 100. The new dimensions all use data the v2 schema was already collecting but the old matcher was ignoring.
+
+| Dimension | New cap | v2 old cap | Notes |
+|---|---|---|---|
+| Shared skills | 25 | 30 | Now **fuzzy** (Levenshtein ≥80% + substring containment). Tolerates typos and minor wording differences. |
+| Shared interests | 15 | 20 | Now fuzzy. |
+| OCEAN similarity | 20 | 25 | Unchanged math, lower cap to make room. |
+| MBTI compatibility | 20 | 25 | Curated ideal-pair table + temperament fallback, unchanged. |
+| Location proximity | 5 | – | NEW. Country + city via fuzzy. City+country = 5, country only = 3. |
+| Travel overlap | 10 | – | NEW. Same destination + overlapping `from_date`/`to_date` = 10; within 30 days = 6; same destination only = 4. |
+| Aligned goals | 5 | – | NEW. Shared regenerative keywords (`community`, `regenerative`, `sustainable`, `permaculture`, `nature`, `spiritual`) in `user_bio.goals`. |
+
+Match reasons now use emoji prefixes consistent with the UI tone: ✨ skills, 💚 interests, 🧠 personality, 🎯 MBTI / goals, 📍 location, ✈️ travel.
+
+**Caller-side change:** `city` and `country` live on `user_profiles`, not `user_bio`, so callers merge them onto the bio object before calling `computeMatch`. Updated in 4 places: `app/network/page.tsx`, `app/network/matches/page.tsx`, `app/u/[username]/page.tsx`, `modules/home/HomePage.tsx`. The "How Matching Works" panels on `/network/matches` were updated with the new 7-dimension breakdown.
+
+The 4 ports were lifted from `archive/Modules/MycoNetv1.0/server/storage.ts` (the original v1 Replit `getMatches` function, ~360 lines) — kept the algorithmic logic, dropped v1's astrology / Human Design / 16×16 MBTI matrix because those don't fit the v2 schema or have a better replacement already.
+
+### Catch-up from the v3.22 CLEANUP sprint
+
+Two items the checklist had marked done but the actual code/doc changes were never committed.
+
+- **Item 5 closure:** deleted leftover `web/src/app/api/claude/route.ts`. The route was already renamed to `/api/scan` back in v3.22; this just removed the orphaned file. Also fixed the stale "(via /api/claude route)" reference in ARCHITECTURE §8 tech-stack table.
+- **Item 11:** replaced `dangerouslySetInnerHTML` on the home page's "why" bullets with a `parseStrong()` helper that returns React nodes.
+
+### Root docs consolidation
+
+Two May 8/9 planning docs were sitting at the repo root, partly superseded but each containing some unique content not anywhere else.
+
+- **`AiNSP_RnDev.md`** (deleted). Its unique business content — SPARK/THRIVE service-phase model + revenue streams — was moved into a new "Service Model & Revenue" section in `EXECUTIVE-SUMMARY.md`.
+- **`techstack_AiNSP_RnDev.md`** (deleted). Its forward-looking agent architecture — event bus design, MycoNet community memory (JSONB + pgvector), two-group Telegram model, approval flow, open questions — was moved into a new section §12 "Planned: M10–M13 Agent Architecture" in `ARCHITECTURE.md`.
+- `EXECUTION-PLAN.md` refreshed to v2.2: marks M08 + M09 live, documents the AppShell + ProfileCompletion system, fixes deploy command to `deploy:cf`, reshuffles next-milestone list.
+- `DOCS.md`, `README.md`, `CLAUDE.md` indexes pruned of the dead refs.
+
+### Repo navigability — archive cleanup
+
+- Deleted standalone `landing-page/` directory — superseded by Next.js `/` and `/home` routes.
+- Deleted standalone `minimax-worker/` directory — superseded by `web/src/app/api/scan/route.ts`. Was never even tracked in git; just sitting on disk.
+- Deleted `archive/Modules/MycoNetv1.0/` (213 MB nested git repo dominated by a 137 MB tarball already excluded by its own `.gitignore`). The only piece of v2 value — the matching logic — was ported into `match-score.ts` first.
+- Restored `archive/Modules/design_handoff_portal_explainer/` (268 KB, 10 files) — `DOCS.md` was already pointing to it but the dir was untracked. This is the original design spec that produced the now-live `/home` Portal Explainer.
+
+---
+
 ## 2026-05-23 — v3.41 — Unified Project Kanban, circles, drag-and-drop, admin users editor
 
 Big PM-pass restructure of M07 Operations. The board now has a single mental model: five columns shared between the main `/ops` page (cards = projects) and the per-project `/ops/[id]` page (cards = deliverables, plus pending proposals in the Ideas column).

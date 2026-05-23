@@ -2,7 +2,7 @@
 
 Every explainer / README file in this repo, with what it's for and who should read it. If you're looking for something specific, this is the map.
 
-> Last updated: 2026-05-23 (v3.41) — removed stale `AiNSP_RnDev.md` / `techstack_AiNSP_RnDev.md` (content merged into EXECUTIVE-SUMMARY + ARCHITECTURE §12); removed `archive/Modules/MycoNetv1.0/` v1 dump (matching enhancements ported to `web/src/modules/m01-network/lib/match-score.ts`).
+> Last updated: 2026-05-23 (v3.42) — M01 matching v2 (fuzzy + location + travel + goals); removed stale `AiNSP_RnDev.md` / `techstack_AiNSP_RnDev.md` (content merged into EXECUTIVE-SUMMARY + ARCHITECTURE §12); removed `archive/Modules/MycoNetv1.0/` v1 dump (matching enhancements ported to `web/src/modules/m01-network/lib/match-score.ts`).
 
 ---
 

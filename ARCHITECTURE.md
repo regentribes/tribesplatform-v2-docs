@@ -1,6 +1,6 @@
 # MyCoNet v2 — Architecture & Database Schema
 
-> Status: v3.41 LIVE | Updated: 2026-05-23 (merged in M10–M13 agent design + service/revenue model from old planning docs)
+> Status: v3.42 LIVE | Updated: 2026-05-23
 
 ---
 

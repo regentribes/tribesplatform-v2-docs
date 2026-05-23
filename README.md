@@ -53,4 +53,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.41 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: unified five-column Project Kanban with drag-and-drop, circles (5 pillars) on projects, agreement-acceptance auto-creates deliverables, admin users editor at `/admin/users`.
+🟢 **v3.42 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 matching v2 (fuzzy skills, location proximity, travel-overlap-with-dates, regenerative goal keywords — 7 scoring dimensions instead of 4), root docs consolidated, v1 archive removed.

@@ -2,6 +2,25 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.42',
+    date: '2026-05-23',
+    title: 'M01 matching v2 — fuzzy skills, location, travel overlap, goal keywords; root docs consolidation',
+    items: [
+      'M01 match scoring now considers 7 dimensions instead of 4. New caps (still summing to 100): Shared skills 25 (was 30), Shared interests 15 (was 20), OCEAN 20 (was 25), MBTI 20 (was 25), Location proximity 5 (new), Travel overlap 10 (new), Aligned goals 5 (new).',
+      'Skill and interest matching is now fuzzy — Levenshtein similarity ≥80% + substring containment. "Permacultur Desgn" now matches "Permaculture Design"; "Regenerative ag" matches "Regenerative agriculture". Free-text fields finally work the way users expect.',
+      'Location proximity: same country + city = 5 pts, same country only = 3 pts. Pulled from user_profiles.city/country, which callers now merge into the bio object before scoring.',
+      'Travel overlap with date awareness: same destination + overlapping dates = 10 pts (reason "✈️ Both in Bali at the same time (Jun)"); within 30 days = 6 pts; same destination only = 4 pts. Uses user_bio.places_traveling JSONB with from_date/to_date.',
+      'Goal-keyword overlap on user_bio.goals across 6 regenerative signal words (community / regenerative / sustainable / permaculture / nature / spiritual) — up to 5 pts.',
+      'Richer match reasons consistent with existing UI tone: ✨ shared skills, 💚 shared interests, 🧠 personality, 🎯 MBTI / goals, 📍 location, ✈️ travel.',
+      'Removed /api/claude/route.ts leftover file — was already replaced by /api/scan in v3.22. Fixed stale ARCHITECTURE §8 reference.',
+      'home/HomeClient.tsx: replaced dangerouslySetInnerHTML on the "why" bullet lists with a parseStrong() helper that returns React nodes — closes CLEANUP item 11.',
+      'Root docs consolidation: merged business/revenue content from AiNSP_RnDev.md into EXECUTIVE-SUMMARY (new "Service Model & Revenue" section). Merged future-agent architecture from techstack_AiNSP_RnDev.md into ARCHITECTURE §12 (event bus, MycoNet memory, two-group Telegram, approval flow). Both stale May-8/9 planning docs deleted.',
+      'Repo navigability cleanup: deleted standalone landing-page/ (superseded by Next.js / and /home), deleted minimax-worker/ (superseded by /api/scan), removed 213 MB archive/Modules/MycoNetv1.0/ v1 Replit dump (its matching logic — the only piece of v2 value — was ported in this release).',
+      'Restored archive/Modules/design_handoff_portal_explainer/ to the repo (DOCS.md was already pointing to it) — the original design spec that produced the now-live /home Portal Explainer.',
+      'EXECUTION-PLAN.md refreshed to v2.2 reflecting current v3.01 state — M08 + M09 marked live, AppShell + ProfileCompletion + /home documented, deploy command corrected to deploy:cf.',
+    ],
+  },
+  {
     version: 'v3.41',
     date: '2026-05-23',
     title: 'Circles, Kanban drag-and-drop, admin users editor, type consolidation',
