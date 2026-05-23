@@ -53,7 +53,7 @@ export default async function AgreementsPage() {
   const { data: rawProjects } = await supabase
     .from('projects')
     .select('id, title, description, status, open_for_collaborators, needs, deadline, lead_user_id, created_by')
-    .eq('status', 'active')
+    .in('status', ['backlog', 'in_progress', 'review'])
     .eq('open_for_collaborators', true)
     .order('created_at', { ascending: false })
 

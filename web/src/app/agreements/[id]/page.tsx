@@ -1,6 +1,7 @@
 import { createClient } from '@/core/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { isJoiningOrAbove } from '@/core/lib/roles'
+import { isActiveProject } from '@/core/lib/project-status'
 import AgreementFormClient from '@/modules/m06-agreements/AgreementFormClient'
 
 export default async function AgreementFormPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +24,7 @@ export default async function AgreementFormPage({ params }: { params: Promise<{ 
     .eq('id', id)
     .single()
 
-  if (!project || project.status !== 'active' || !project.open_for_collaborators) notFound()
+  if (!project || !isActiveProject(project.status) || !project.open_for_collaborators) notFound()
 
   const { data: existing } = await supabase
     .from('collaboration_agreements')
