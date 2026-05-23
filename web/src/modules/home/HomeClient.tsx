@@ -85,6 +85,14 @@ function DemoHead({ color, modLabel, title, meta, href }: { color: string; modLa
   )
 }
 
+function parseStrong(text: string): React.ReactNode {
+  const parts = text.split(/(<strong>.*?<\/strong>)/g)
+  return parts.map((part, i) => {
+    const match = part.match(/^<strong>(.*?)<\/strong>$/)
+    return match ? <strong key={i}>{match[1]}</strong> : part
+  })
+}
+
 function SectionHead({ color, mod, label, h, lead, why, href }: {
   color: string; mod: string; label: string; h: string; lead: string; why: string[]; href: string
 }) {
@@ -118,7 +126,7 @@ function SectionHead({ color, mod, label, h, lead, why, href }: {
             }}>
               {CHECK_ICON}
             </div>
-            <p style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.6, margin: 0 }} dangerouslySetInnerHTML={{ __html: w }} />
+            <p style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.6, margin: 0 }}>{parseStrong(w)}</p>
           </div>
         ))}
       </div>

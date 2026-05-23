@@ -1,6 +1,6 @@
 # MyCoNet v2 — Execution Plan
 
-> Version: 2.1 | Date: 2026-05-15 | Status: PHASE 0 LIVE — CLONING NEXT
+> Version: 2.2 | Date: 2026-05-21 | Status: v3.01 LIVE — M00–M09 deployed
 
 ---
 
@@ -14,8 +14,21 @@
 | M05 — Join | ✅ Live | Application form pulled from Blueprint step 1.4 questions. Explorer gate. Admin review panel. Accept sets user role to `joining`. Guest-browsable (teaser view for non-members). |
 | M06 — Agreements | ✅ Live | Joining+ members submit collaboration proposals. Admin review panel. Status flow: pending → accepted → active → completed. Live count on dashboard. Guest-browsable (open projects visible). |
 | M07 — Operations | ✅ Live | Admin creates projects, posts timeline updates, toggles open-for-collaborators. Project detail shows collaboration proposals inline. Guest-browsable. |
+| M08 — Contribution Tracking | ✅ Live | Achievements catalog at `/contributions`. Profile Pioneer badge at 100% profile. `user_achievements` table with RLS. |
+| M09 — Governance | ✅ Live | Proposals with 4 decision modes. Consent/concern/object voting. Discussion threads. 3 new tables: `proposals`, `proposal_votes`, `proposal_comments`. |
 | M02 — Neighborhood Directory | 🔗 v1 link | Dashboard links out to v1 tribesplatform.app. v2 will be cross-portal opt-in directory. |
 | M03 — Resources & Tools | 🔗 v1 link | Dashboard links out to v1 tribesplatform.app. Building in v2 next. |
+
+### AppShell + Profile Completion System (2026-05-21)
+- `src/components/AppShell.tsx` — wraps all non-auth pages; provides ProfileCompletionProvider
+- `src/components/AppTopBar.tsx` — top nav with profile completion bar (22px, disappears at 100%)
+- `src/components/AppSideNav.tsx` — left side nav M00–M09
+- `src/contexts/ProfileCompletion.tsx` — shared context so wizard pushes live % to top bar
+- Profile completion: 11-check scoring (avatar, name, headline, city, types, values, skills, goals, 1+ offer, 1+ request, 1+ travel plan)
+
+### /home Portal Explainer (2026-05-21)
+- Server component fetching live DB data per module
+- Interactive M01 member cards (link to `/u/[username]`), M04 animated phases, M05 values checkboxes, M06 proposal form, M07 deliverables, M08/M09 demo
 
 ### Visual Identity System (2026-05-15)
 - `src/lib/module-meta.ts` — single source of truth for all 14 module colors, labels, descriptions
@@ -38,7 +51,7 @@
 | Telegram — future | node-telegram-bot-api (Genesis Bot) |
 | Payments — future | Stripe |
 
-Deploy command: `cd web && npm run deploy`
+Deploy command: `cd web && npm run deploy:cf`
 
 ---
 
@@ -223,9 +236,10 @@ The opt-in M02 directory is the foundation for Hive — communities that share t
 | Gate | Condition | Unlocks |
 |---|---|---|
 | **Phase 0** | ✅ M00, M01, M04, M05, M06, M07 live | Core loop proven |
+| **Member depth** | ✅ M08 live (Profile Pioneer badge) | Achievements system running |
+| **Governance** | ✅ M09 live | Community can decide together formally |
 | **Clone proven** | Second community portal live end-to-end | Cloning playbook locked |
-| **Member depth** | M08 live + M01 messaging | Community is sticky |
-| **Governance** | M09 live | Community can decide together formally |
+| **M01 messaging** | Direct member-to-member messaging | Community is sticky |
 | **M02 v2** | 2+ communities opted in to directory | Network visibility begins |
 | **Agent ready** | Multi-community live + DB tables stable | M12 → M10 → M11 |
 | **Hive** | 3+ communities live in M02 directory | M13 build starts |
@@ -236,14 +250,14 @@ The opt-in M02 directory is the foundation for Hive — communities that share t
 
 1. **Clone preparation** — audit for hardcoded community names; add community name to `.env` or Blueprint config
 2. **Clone for second community** — prove the end-to-end deployment process
-3. **M08 Contribution Tracking** — reward completed agreements and onboarding milestones
+3. **M08 expand** — reward completed agreements and onboarding milestones (beyond profile completion)
 4. **M01 Direct Messaging** — let matched members talk to each other
 5. **M04 PDF Export** — let the community share their Blueprint externally
-6. **M09 Governance skeleton** — simple proposal + vote flow (no AI yet, just the structure)
+6. **M09 AI facilitation** — add Claude API reasoning from Blueprint values when proposals are submitted
 7. **M02 v2 design** — spec the opt-in directory system and how community profiles are structured
 
 ---
 
-*Document version: 2.1*
+*Document version: 2.2*
 *Authors: Oz + Claude*
-*Last updated: 2026-05-15 — Clone-first strategy, M02 v2 opt-in directory design, guest browsing, visual identity system*
+*Last updated: 2026-05-21 — M08 live (Profile Pioneer), M09 live (governance), AppShell + ProfileCompletion system, /home portal explainer, v3.01 deploy*

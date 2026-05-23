@@ -410,7 +410,7 @@ $$;
 | Database | Supabase PostgreSQL |
 | Access control | Supabase Row Level Security |
 | Hosting | Cloudflare Workers (@opennextjs/cloudflare) |
-| AI — Blueprint scanning | MiniMax M2.7 (via /api/claude route) |
+| AI — Blueprint scanning | MiniMax M2.7 (via /api/scan route) |
 | AI — future (Quinn, M09) | Claude API (Anthropic) |
 | UI components | shadcn/ui (Radix primitives + Tailwind) |
 | Styling | CSS custom properties + Tailwind |
