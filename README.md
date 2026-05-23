@@ -55,4 +55,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.45 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 Members module pages restyled to match the dashboard's Google-style sleek visual language. New `DESIGN-SYSTEM.md` documents the tokens and patterns.
+🟢 **v3.46 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 profile pages fully restyled — all tab bodies (About, Personality, Offers, Requests, Travel) now use inline-style design-system components, matching the dashboard visual language end-to-end.

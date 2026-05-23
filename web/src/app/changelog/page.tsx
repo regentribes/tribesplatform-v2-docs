@@ -2,6 +2,19 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.46',
+    date: '2026-05-23',
+    title: 'M01 profile pages fully restyled — tab bodies now match the dashboard visual language',
+    items: [
+      'ProfilePage (/network/profile) tab bodies restyled: About, Personality, Offers, Requests, and Travel tab content all converted from shadcn Card/Badge/Progress/Tabs to inline-style design-system components.',
+      'UserProfileClient (/u/[username]) fully restyled: same conversion for all 5 tab bodies (About now also covers Growth & Healing section) + profile header now matches the same pattern as ProfilePage.',
+      'Both profile views now use a custom pill-style tab bar (matching MatchesTabs) instead of shadcn Tabs.',
+      'OCEAN trait bars replaced shadcn Progress with inline div bars using var(--m1) fill and var(--rule) track.',
+      'Skills/Interests chips now use the Chip component (design-system color-mix pattern) with module-color accent for skills, neutral for interests.',
+      'All shadcn imports (Card, CardContent, CardHeader, CardTitle, Badge, Progress, Tabs, Button, Avatar, Skeleton) removed from ProfilePage and UserProfileClient.',
+    ],
+  },
+  {
     version: 'v3.45',
     date: '2026-05-23',
     title: 'M01 Members module pages restyled to match the dashboard (Google-style sleek)',
