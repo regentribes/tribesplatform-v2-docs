@@ -45,13 +45,9 @@
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Fixed so the wizard always starts exactly at the nav's bottom edge, no matter
-     how the browser handles position:sticky inside the flex layout */
-  position: fixed;
-  top: var(--nav-h);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Fills the <main> grid cell; position: relative keeps absolute children (mobile tabs) anchored */
+  position: relative;
+  height: 100%;
   overflow: hidden;
 }
 

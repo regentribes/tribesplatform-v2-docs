@@ -353,6 +353,10 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* Blueprint wizard fills the shell's <main> cell; suppress main's scroll for it */
+.blueprint-shell-wrapper { height: 100%; overflow: hidden; }
+.app-shell-layout main:has(.blueprint-shell-wrapper) { overflow: hidden; }
+
 /* ─── Mobile layout utilities ───────────────────────────────────── */
 @media (max-width: 640px) {
   /* Governance master-detail → stacked */
