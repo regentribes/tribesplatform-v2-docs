@@ -83,8 +83,11 @@ export default async function JoinPage() {
   const { data: buddiesData } = await buddiesQuery
   buddyProfiles = (buddiesData ?? []) as any
 
+  let hasContribution = false
+  let hasOwnProject = false
+
   if (user) {
-    const [appRes, profileRes, signaturesRes] = await Promise.all([
+    const [appRes, profileRes, signaturesRes, contributionRes, ownProjectRes] = await Promise.all([
       supabase
         .from('applications')
         .select('status, answers, created_at')
@@ -99,12 +102,27 @@ export default async function JoinPage() {
         .from('value_signatures')
         .select('value_id')
         .eq('user_id', user.id),
+      supabase
+        .from('collaboration_agreements')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('status', ['accepted', 'active', 'completed'])
+        .limit(1),
+      supabase
+        .from('projects')
+        .select('id')
+        .eq('created_by', user.id)
+        .limit(1),
     ])
 
     existingApplication = appRes.data as any
     userProfile = profileRes.data as any
     signedValueIds = (signaturesRes.data ?? []).map((s: any) => s.value_id)
+    hasContribution = (contributionRes.data?.length ?? 0) > 0
+    hasOwnProject = (ownProjectRes.data?.length ?? 0) > 0
   }
+
+  const isProfileComplete = !!(userProfile?.first_name && userProfile?.headline)
 
   return (
     <JoinClient
@@ -115,6 +133,9 @@ export default async function JoinPage() {
       communityValues={communityValues}
       initialSignedValueIds={signedValueIds}
       buddyProfiles={buddyProfiles}
+      isProfileComplete={isProfileComplete}
+      hasContribution={hasContribution}
+      hasOwnProject={hasOwnProject}
     />
   )
 }
