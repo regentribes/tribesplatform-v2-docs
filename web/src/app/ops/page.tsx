@@ -78,6 +78,18 @@ export default async function OpsPage() {
   }
 
   const allProjects = projects ?? []
+
+  // Fetch user profiles for all project creators and leads
+  const uniqueUserIds = [...new Set([
+    ...allProjects.map(p => p.created_by).filter(Boolean) as string[],
+    ...allProjects.map(p => p.lead_user_id).filter(Boolean) as string[],
+  ])]
+  const { data: userProfilesData } = uniqueUserIds.length > 0
+    ? await supabase.from('user_profiles').select('id, first_name, username').in('id', uniqueUserIds)
+    : { data: [] }
+  const userProfiles: Record<string, { first_name: string | null; username: string | null }> = Object.fromEntries(
+    (userProfilesData ?? []).map((p: any) => [p.id, { first_name: p.first_name ?? null, username: p.username ?? null }])
+  )
   const activeCount = allProjects.filter(p => isActiveProject(p.status)).length
   const deliverableCount = deliverables.length
   const doneCount = deliverables.filter(d => d.status === 'done').length
@@ -107,6 +119,7 @@ export default async function OpsPage() {
       leadCircles={leadCircles}
       sprintName={sprintName}
       projectSubscribers={projectSubscribers}
+      userProfiles={userProfiles}
       canPropose={isJoiningOrAbove(userRole)}
     />
   )

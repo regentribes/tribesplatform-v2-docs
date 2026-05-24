@@ -26,6 +26,7 @@ interface OpsClientProps {
   leadCircles: string[]
   sprintName: string | null
   projectSubscribers: Record<string, SubscriberProfile[]>
+  userProfiles: Record<string, { first_name: string | null; username: string | null }>
   canPropose: boolean
 }
 
@@ -97,11 +98,12 @@ function StatCard({ label, value, delta, valueColor = 'var(--ink)' }: {
 // ─── Project Kanban Card ─────────────────────────────────────────────────────
 
 function ProjectKanbanCard({
-  project, subtaskCount, doneCount, canMove, subscribers,
+  project, subtaskCount, doneCount, canMove, subscribers, leadName,
   onDragStart, onDragEnd, isDragging,
 }: {
   project: Project; subtaskCount: number; doneCount: number; canMove: boolean
   subscribers: SubscriberProfile[]
+  leadName: string | null
   onDragStart?: (id: string) => void; onDragEnd?: () => void; isDragging?: boolean
 }) {
   const circleMeta = isPillar(project.circle) ? PILLAR_META[project.circle] : null
@@ -110,6 +112,9 @@ function ProjectKanbanCard({
   const deadline = project.deadline ? new Date(project.deadline + 'T00:00:00') : null
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const isOverdue = deadline && deadline < today && project.status !== 'done'
+
+  // Format subscriber names: "Oscar · Vaipunu · +3"
+  const subNames = subscribers.map(s => s.first_name ?? s.username ?? 'Member')
 
   return (
     <Link href={`/ops/${project.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
@@ -129,9 +134,16 @@ function ProjectKanbanCard({
           opacity: isDragging ? 0.5 : 1,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 5, color: 'var(--ink)', lineHeight: 1.35 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: 'var(--ink)', lineHeight: 1.35 }}>
           {project.title}
         </div>
+
+        {/* Lead name */}
+        {leadName && (
+          <div style={{ fontSize: 10, color: 'var(--ink-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>
+            Led by <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{leadName}</span>
+          </div>
+        )}
 
         {circleMeta && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: circleMeta.color, background: `${circleMeta.color}15`, padding: '1px 6px', borderRadius: 20, marginBottom: 5 }}>
@@ -148,24 +160,32 @@ function ProjectKanbanCard({
           </p>
         )}
 
-        {/* Footer row: subtasks + deadline + subscribers */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, flexWrap: 'wrap', gap: 4 }}>
+        {/* Subscriber names */}
+        {subNames.length > 0 && (
+          <div style={{ fontSize: 10, color: 'var(--ink-3)', marginBottom: 6, lineHeight: 1.4 }}>
+            <span style={{ color: 'var(--ink-4)' }}>Watching: </span>
+            <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>
+              {subNames.slice(0, 3).join(' · ')}
+              {subNames.length > 3 && <span style={{ color: 'var(--ink-4)' }}> · +{subNames.length - 3}</span>}
+            </span>
+          </div>
+        )}
+
+        {/* Footer row: subtasks + deadline */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, flexWrap: 'wrap', gap: 4 }}>
           <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>
             {subtaskCount === 0 ? 'no subtasks' : `${doneCount}/${subtaskCount} done`}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {deadline && (
-              <span style={{
-                fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600,
-                color: isOverdue ? '#ef4444' : 'var(--ink-4)',
-                background: isOverdue ? '#fef2f2' : 'transparent',
-                padding: isOverdue ? '1px 4px' : 0, borderRadius: 4,
-              }}>
-                {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </span>
-            )}
-            <SubscriberAvatars subscribers={subscribers} />
-          </div>
+          {deadline && (
+            <span style={{
+              fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600,
+              color: isOverdue ? '#ef4444' : 'var(--ink-4)',
+              background: isOverdue ? '#fef2f2' : 'transparent',
+              padding: isOverdue ? '1px 4px' : 0, borderRadius: 4,
+            }}>
+              {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
         </div>
       </div>
     </Link>
@@ -178,7 +198,7 @@ export default function OpsClient({
   projects, deliverables: initialDeliverables, updates,
   activeCount, deliverableCount, doneCount, atRiskCount,
   isAdmin, userId, userRole, leadCircles, sprintName,
-  projectSubscribers, canPropose,
+  projectSubscribers, userProfiles, canPropose,
 }: OpsClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'board' | 'deliverables' | 'updates'>('board')
@@ -328,6 +348,9 @@ export default function OpsClient({
                   cards.map(p => {
                     const stats = subtasksByProject.get(p.id) ?? { total: 0, done: 0 }
                     const subs = projectSubscribers[p.id] ?? []
+                    const leadId = p.lead_user_id ?? p.created_by ?? ''
+                    const leadProf = userProfiles[leadId]
+                    const leadName = leadProf?.first_name ?? leadProf?.username ?? null
                     return (
                       <ProjectKanbanCard
                         key={p.id}
@@ -336,6 +359,7 @@ export default function OpsClient({
                         doneCount={stats.done}
                         canMove={canMoveProject(p, userId, userRole, leadCircles)}
                         subscribers={subs}
+                        leadName={leadName}
                         onDragStart={(id) => setDraggingId(id)}
                         onDragEnd={() => { setDraggingId(null); setDropTarget(null) }}
                         isDragging={draggingId === p.id}

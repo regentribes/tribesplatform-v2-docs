@@ -59,6 +59,34 @@ function SubscriberAvatars({ subs, size = 18 }: { subs: SubscriberProfile[]; siz
   )
 }
 
+function SubscriberNames({ subs, max = 5 }: { subs: SubscriberProfile[]; max?: number }) {
+  if (!subs.length) return null
+  const show = subs.slice(0, max)
+  const extra = subs.length - max
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+      {show.map(s => {
+        const name = s.first_name ?? s.username ?? 'Member'
+        const hue = (name.charCodeAt(0) * 37) % 360
+        return (
+          <span key={s.user_id} style={{
+            fontSize: 11, fontWeight: 500,
+            color: `hsl(${hue}, 45%, 40%)`,
+            background: `hsl(${hue}, 55%, 55%, 0.12)`,
+            border: `1px solid hsl(${hue}, 55%, 55%, 0.3)`,
+            padding: '2px 8px', borderRadius: 999,
+          }}>
+            {name}
+          </span>
+        )
+      })}
+      {extra > 0 && (
+        <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>+{extra} more</span>
+      )}
+    </div>
+  )
+}
+
 function BellIcon({ filled }: { filled: boolean }) {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
@@ -86,6 +114,7 @@ export default function ProjectDetailClient({
   deliverables: initialDeliverables, myProposal: initialMyProposal, userId, userRole, isAdmin, isProjectCreator,
   projectSubscribers: initialProjectSubscribers, isProjectSubscribed: initialIsProjectSubscribed,
   deliverableSubscribers: initialDeliverableSubscribers,
+  leadProfile, creatorProfile,
 }: {
   project: Project
   updates: ProjectUpdate[]
@@ -99,6 +128,8 @@ export default function ProjectDetailClient({
   projectSubscribers: SubscriberProfile[]
   isProjectSubscribed: boolean
   deliverableSubscribers: Record<string, SubscriberProfile[]>
+  leadProfile: { first_name: string | null; username: string | null } | null
+  creatorProfile: { first_name: string | null; username: string | null } | null
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -419,6 +450,26 @@ export default function ProjectDetailClient({
               })()}
             </div>
 
+            {/* Lead / creator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 8 }}>
+              {leadProfile && (
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Led by</span>
+                  <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>
+                    {leadProfile.first_name ?? leadProfile.username ?? 'Unknown'}
+                  </span>
+                </div>
+              )}
+              {creatorProfile && (
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Proposed by</span>
+                  <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>
+                    {creatorProfile.first_name ?? creatorProfile.username ?? 'Unknown'}
+                  </span>
+                </div>
+              )}
+            </div>
+
             {/* Deadline display */}
             {project.deadline && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -472,11 +523,11 @@ export default function ProjectDetailClient({
 
         {/* Project subscribers */}
         {projectSubsList.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <SubscriberAvatars subs={projectSubsList} size={22} />
-            <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)', marginBottom: 5 }}>
               {projectSubsList.length} subscriber{projectSubsList.length !== 1 ? 's' : ''}
-            </span>
+            </div>
+            <SubscriberNames subs={projectSubsList} />
           </div>
         )}
 
@@ -742,7 +793,7 @@ export default function ProjectDetailClient({
                             }}>
                               {d.title}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, flexWrap: 'wrap' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
                                 {assignee && <span>{assignee}</span>}
                                 {d.due_date && (
@@ -751,9 +802,6 @@ export default function ProjectDetailClient({
                                   </span>
                                 )}
                               </div>
-                              {subsList.length > 0 && (
-                                <SubscriberAvatars subs={subsList} size={16} />
-                              )}
                               <button
                                 onClick={(e) => toggleDeliverableSubscription(d.id, e)}
                                 title={isSubbed ? 'Unsubscribe' : 'Subscribe'}
@@ -769,6 +817,11 @@ export default function ProjectDetailClient({
                                 <BellIcon filled={isSubbed} />
                               </button>
                             </div>
+                            {subsList.length > 0 && (
+                              <div style={{ marginTop: 5 }}>
+                                <SubscriberNames subs={subsList} max={4} />
+                              </div>
+                            )}
                           </div>
                         )
                       })
@@ -995,11 +1048,11 @@ export default function ProjectDetailClient({
                 const subs = deliverableSubsMap[editModal.id] ?? []
                 if (!subs.length) return null
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
-                    <SubscriberAvatars subs={subs} size={22} />
-                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)', marginBottom: 6 }}>
                       {subs.length} subscriber{subs.length !== 1 ? 's' : ''}
-                    </span>
+                    </div>
+                    <SubscriberNames subs={subs} />
                   </div>
                 )
               })()}

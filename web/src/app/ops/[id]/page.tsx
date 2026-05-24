@@ -51,6 +51,20 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   ])
 
   if (!projectRes.data) notFound()
+  const project = projectRes.data as Project
+
+  // Lead is lead_user_id if set, otherwise the creator
+  const leadUserId = project.lead_user_id ?? project.created_by
+  const creatorId = project.created_by
+  const idsToFetch = [...new Set([leadUserId, creatorId].filter(Boolean) as string[])]
+  const { data: memberProfilesData } = idsToFetch.length > 0
+    ? await supabase.from('user_profiles').select('id, first_name, username').in('id', idsToFetch)
+    : { data: [] }
+  const memberProfileMap: Record<string, { first_name: string | null; username: string | null }> = Object.fromEntries(
+    (memberProfilesData ?? []).map((p: any) => [p.id, { first_name: p.first_name ?? null, username: p.username ?? null }])
+  )
+  const leadProfile = leadUserId ? (memberProfileMap[leadUserId] ?? null) : null
+  const creatorProfile = creatorId && creatorId !== leadUserId ? (memberProfileMap[creatorId] ?? null) : null
 
   // Fetch deliverable subs properly using the real deliverable IDs
   const deliverableIds = (deliverablesRes.data ?? []).map((d: any) => d.id as string)
@@ -82,7 +96,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   }
 
   const isAdmin = isOpsAdmin(profileRes.data?.role ?? '')
-  const project = projectRes.data as Project
   const isProjectCreator = project.created_by === user.id || project.lead_user_id === user.id
 
   return (
@@ -99,6 +112,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       projectSubscribers={projectSubscribers}
       isProjectSubscribed={isProjectSubscribed}
       deliverableSubscribers={deliverableSubscribers}
+      leadProfile={leadProfile}
+      creatorProfile={creatorProfile}
     />
   )
 }
