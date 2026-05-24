@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
-    version: 'v3.56',
+    version: 'v3.50',
     date: '2026-05-23',
     title: 'Blueprint module now shows the app shell sidebar (M00–M09 nav)',
     items: [
