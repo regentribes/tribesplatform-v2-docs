@@ -648,9 +648,10 @@ export default function JoinClient({
   const [submitted, setSubmitted] = useState(false)
   const [reapplying, setReapplying] = useState(false)
 
-  // Full members and above have completed the join flow — show the role map instead
-  const FULL_MEMBER_ROLES = ['member', 'circle_lead', 'project_lead', 'admin']
-  if (FULL_MEMBER_ROLES.includes(userRole)) {
+  // Joining+ users have started or completed the process — show the role roadmap
+  // so they can see where they are and what unlocks next.
+  const ROADMAP_ROLES = ['joining', 'member', 'circle_lead', 'project_lead', 'admin']
+  if (ROADMAP_ROLES.includes(userRole)) {
     return <RoleRoadmap currentRole={userRole} />
   }
 
