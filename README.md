@@ -55,4 +55,4 @@ Each document serves a different purpose. Read them in order.
 
 ## Status
 
-🟢 **v3.46 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 profile pages fully restyled — all tab bodies (About, Personality, Offers, Requests, Travel) now use inline-style design-system components, matching the dashboard visual language end-to-end.
+🟢 **v3.56 LIVE** — M00–M09 deployed on Cloudflare Workers as `myconet`. Recent: M01 profile pages fully restyled — all tab bodies (About, Personality, Offers, Requests, Travel) now use inline-style design-system components, matching the dashboard visual language end-to-end.

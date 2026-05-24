@@ -2,6 +2,18 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.56',
+    date: '2026-05-23',
+    title: 'Blueprint module now shows the app shell sidebar (M00–M09 nav)',
+    items: [
+      'Blueprint (/blueprint) was rendered as a position:fixed full-viewport overlay — the entire app shell sidebar (M00–M09 module navigation) was hidden behind it.',
+      'Fixed by switching .wizard-root from position:fixed to position:relative height:100%, so the wizard fills only the <main> grid cell and the sidebar stays visible.',
+      'Added blueprint-shell-wrapper CSS class with a :has() selector to suppress the shell\'s overflowY on the blueprint route only, preventing double scrollbars while preserving the wizard\'s own internal scroll columns (Steps sidebar / Content / Radar rail).',
+      'Blueprint\'s own three-column internal layout (steps sidebar, content area, right rail) is unchanged — only the positioning relative to the app shell changed.',
+      'Also completed M01 profile pages full restyle (v3.46): ProfilePage and UserProfileClient tab bodies (About, Personality, Offers, Requests, Travel) converted from shadcn to inline-style design-system components.',
+    ],
+  },
+  {
     version: 'v3.46',
     date: '2026-05-23',
     title: 'M01 profile pages fully restyled — tab bodies now match the dashboard visual language',
