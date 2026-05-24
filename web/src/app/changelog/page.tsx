@@ -2,6 +2,22 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.51',
+    date: '2026-05-23',
+    title: 'M07 Ops — full user flow: proposals, subscriptions, calendar picker, subtask modal',
+    items: [
+      'Any joining+ member can now propose a project from /ops/new — proposal lands in the Ideas column with status "pending". Admins or circle leads accept it by dragging it to Backlog.',
+      'Subscribe/unsubscribe to projects and individual subtasks. Subscriber avatar pills appear on the project header and on each subtask kanban card. Optimistic UI — no reload required.',
+      'Custom CalendarPicker component replaces the native <input type="date"> throughout M07. Opens a smooth animated dropdown with month/year nav, day grid, today indicator, and a "Clear date" footer. No external dependencies.',
+      'Project deadline is displayed in the project detail header with an overdue highlight in red. Admins can set/clear the deadline in the project settings panel.',
+      'Click any subtask card to open a full edit modal: title field, CalendarPicker for due date, subscribe toggle with subscriber avatar list, Save and Delete buttons (canManage only). Non-managers see the modal in read-only + subscribe mode.',
+      'Bell icon on each subtask card for quick subscribe/unsubscribe without opening the modal.',
+      'Subscriber count label ("N subscribers") shown under project header avatars and inside the subtask edit modal.',
+      'New DB tables: project_subscriptions and deliverable_subscriptions (both with RLS policies for select/insert/delete by authenticated users).',
+      'Fix: SubscriberAvatars title attribute moved from inside style object to JSX prop in OpsClient.',
+    ],
+  },
+  {
     version: 'v3.50',
     date: '2026-05-23',
     title: 'Blueprint module now shows the app shell sidebar (M00–M09 nav)',
