@@ -2,6 +2,21 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.52',
+    date: '2026-05-23',
+    title: 'M05 Join — role roadmap visible to all users with live badge progress',
+    items: [
+      'The role roadmap now shows for every user — logged-out visitors, Explorers, Joining Members, and Full Members all land on the same view instead of different screens.',
+      'Explorer card now has a "Badges you can earn" section with four live-checked achievement chips: 🪪 Profile Pioneer (fill in your profile), 🎉 Community Joiner (get accepted), 🤝 Collaborator (contribute to a project), 🚀 Project Lead (start your own project). Each chip lights up with a checkmark when the milestone is reached.',
+      'Joining Member card shows inline application status (pending / reviewing / rejected) for Explorers with an existing application, or an "Apply to join →" button for those who haven\'t applied yet.',
+      'Rejected applicants see a "Submit a new application →" button directly in the Joining Member row.',
+      'Logged-out visitors see Explorer highlighted as "Start here" with a sign-up CTA at the bottom of the roadmap.',
+      'The multi-step apply form is still fully accessible — clicking "Apply to join" opens it inline, with a "← Back to overview" link back to the roadmap.',
+      'After submission the success screen has a "View your progress →" button that returns to the roadmap.',
+      'Server now fetches hasContribution (accepted/active/completed agreement) and hasOwnProject (created project) to power the live badge states.',
+    ],
+  },
+  {
     version: 'v3.51',
     date: '2026-05-23',
     title: 'M07 Ops — full user flow: proposals, subscriptions, calendar picker, subtask modal',
