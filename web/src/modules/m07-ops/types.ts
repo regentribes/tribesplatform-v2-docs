@@ -1,6 +1,5 @@
 /**
  * Shared types for the M07 Ops module.
- * All components in this module import from here.
  */
 
 export interface Project {
@@ -42,6 +41,13 @@ export interface ProjectUpdate {
   created_at: string
   author_first_name?: string | null
   user_profiles?: { first_name: string | null; username: string | null } | null
+}
+
+/** Subscriber profile — used for project + deliverable subscription display */
+export interface SubscriberProfile {
+  user_id: string
+  first_name: string | null
+  username: string | null
 }
 
 /** Quirk: Supabase's generic types model many-to-one joins as arrays. We know at

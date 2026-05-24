@@ -353,6 +353,12 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* Calendar picker dropdown animation */
+@keyframes calFadeIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
 /* Blueprint wizard fills the shell's <main> cell; suppress main's scroll for it */
 .blueprint-shell-wrapper { height: 100%; overflow: hidden; }
 .app-shell-layout main:has(.blueprint-shell-wrapper) { overflow: hidden; }

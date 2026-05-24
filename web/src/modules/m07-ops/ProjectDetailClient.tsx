@@ -1,17 +1,74 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/core/lib/supabase/client'
 import { fmtDate } from '@/core/lib/format'
 import { isJoiningOrAbove } from '@/core/lib/roles'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { Project, Deliverable, ProjectUpdate, CollaborationAgreement, MyProposal } from './types'
+import type { Project, Deliverable, ProjectUpdate, CollaborationAgreement, MyProposal, SubscriberProfile } from './types'
 import { PILLARS, PILLAR_META, isPillar, type Pillar } from '@/core/lib/pillars'
 import { isActiveProject, isOpenForProposals, PROJECT_STATUS_META, PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
+import { CalendarPicker } from './CalendarPicker'
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function SubscriberAvatars({ subs, size = 18 }: { subs: SubscriberProfile[]; size?: number }) {
+  if (!subs.length) return null
+  const show = subs.slice(0, 5)
+  const extra = subs.length - show.length
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {show.map((s, i) => {
+        const name = s.first_name ?? s.username ?? '?'
+        const initial = name[0].toUpperCase()
+        const hue = (name.charCodeAt(0) * 37) % 360
+        return (
+          <div
+            key={s.user_id}
+            title={name}
+            style={{
+              width: size, height: size, borderRadius: '50%',
+              background: `hsl(${hue}, 55%, 55%)`,
+              color: '#fff', fontSize: Math.floor(size * 0.5), fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginLeft: i === 0 ? 0 : -(Math.floor(size * 0.28)),
+              border: '1.5px solid var(--surface)',
+              zIndex: show.length - i,
+              position: 'relative',
+              flexShrink: 0,
+            }}
+          >
+            {initial}
+          </div>
+        )
+      })}
+      {extra > 0 && (
+        <div style={{
+          width: size, height: size, borderRadius: '50%',
+          background: 'var(--rule)', color: 'var(--ink-3)',
+          fontSize: Math.floor(size * 0.45), fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginLeft: -(Math.floor(size * 0.28)),
+          border: '1.5px solid var(--surface)',
+          flexShrink: 0,
+        }}>
+          +{extra}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BellIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// Status label/color for the project header pill comes from PROJECT_STATUS_META.
-
 
 const BLOCKING_STATUSES = ['pending', 'accepted', 'active', 'completed']
 const PROPOSAL_STATUS_INFO: Record<string, { label: string; color: string; note: string }> = {
@@ -27,6 +84,8 @@ const PROPOSAL_STATUS_INFO: Record<string, { label: string; color: string; note:
 export default function ProjectDetailClient({
   project, updates, pendingProposals: initialPendingProposals,
   deliverables: initialDeliverables, myProposal: initialMyProposal, userId, userRole, isAdmin, isProjectCreator,
+  projectSubscribers: initialProjectSubscribers, isProjectSubscribed: initialIsProjectSubscribed,
+  deliverableSubscribers: initialDeliverableSubscribers,
 }: {
   project: Project
   updates: ProjectUpdate[]
@@ -37,6 +96,9 @@ export default function ProjectDetailClient({
   userRole: string
   isAdmin: boolean
   isProjectCreator: boolean
+  projectSubscribers: SubscriberProfile[]
+  isProjectSubscribed: boolean
+  deliverableSubscribers: Record<string, SubscriberProfile[]>
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -45,11 +107,11 @@ export default function ProjectDetailClient({
   const canManage = isAdmin || isProjectCreator
   const canPropose = !canManage && isJoiningOrAbove(userRole) && project.open_for_collaborators && isOpenForProposals(project.status)
 
-  // ── Kanban state (deliverables + pending proposals as Ideas) ──────────────
+  // ── Kanban state ─────────────────────────────────────────────────────────
   const [deliverables, setDeliverables] = useState<Deliverable[]>(initialDeliverables)
   const [pendingProposals, setPendingProposals] = useState<CollaborationAgreement[]>(initialPendingProposals)
   const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskDue, setNewTaskDue] = useState('')
+  const [newTaskDue, setNewTaskDue] = useState<string | null>(null)
   const [addingTask, setAddingTask] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
 
@@ -57,17 +119,18 @@ export default function ProjectDetailClient({
   const [dragging, setDragging] = useState<{ kind: 'deliverable' | 'proposal'; id: string } | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
-  // ── Updates state ───────────────────────────────────────────────────────────
+  // ── Updates state ─────────────────────────────────────────────────────────
   const [updateText, setUpdateText] = useState('')
   const [postingUpdate, setPostingUpdate] = useState(false)
 
-  // ── Project settings (admin only) ───────────────────────────────────────────
+  // ── Project settings ──────────────────────────────────────────────────────
   const [editStatus, setEditStatus] = useState(project.status)
   const [editOpenCollab, setEditOpenCollab] = useState(project.open_for_collaborators)
   const [editCircle, setEditCircle] = useState<Pillar | ''>(isPillar(project.circle) ? project.circle : '')
+  const [editDeadline, setEditDeadline] = useState<string | null>(project.deadline ?? null)
   const [savingSettings, setSavingSettings] = useState(false)
 
-  // ── Proposal form ───────────────────────────────────────────────────────────
+  // ── Proposal form ─────────────────────────────────────────────────────────
   const [myProposal, setMyProposal] = useState<MyProposal | null>(initialMyProposal)
   const hasBlockingProposal = !!myProposal && BLOCKING_STATUSES.includes(myProposal.status)
   const [showProposalForm, setShowProposalForm] = useState(false)
@@ -76,6 +139,81 @@ export default function ProjectDetailClient({
   const [conditions, setConditions] = useState(myProposal?.conditions ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // ── Project subscriptions ─────────────────────────────────────────────────
+  const [subscribedToProject, setSubscribedToProject] = useState(initialIsProjectSubscribed)
+  const [projectSubsList, setProjectSubsList] = useState<SubscriberProfile[]>(initialProjectSubscribers)
+  const [togglingProjectSub, setTogglingProjectSub] = useState(false)
+
+  // ── Deliverable subscriptions ─────────────────────────────────────────────
+  const [deliverableSubsMap, setDeliverableSubsMap] = useState<Record<string, SubscriberProfile[]>>(initialDeliverableSubscribers)
+
+  // ── Subtask edit modal ────────────────────────────────────────────────────
+  const [editModal, setEditModal] = useState<Deliverable | null>(null)
+  const [editModalTitle, setEditModalTitle] = useState('')
+  const [editModalDue, setEditModalDue] = useState<string | null>(null)
+  const [editModalSaving, setEditModalSaving] = useState(false)
+
+  useEffect(() => {
+    if (!editModal) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditModal(null) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editModal])
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const myDeliverableSubIds = new Set(
+    Object.entries(deliverableSubsMap)
+      .filter(([, subs]) => subs.some(s => s.user_id === userId))
+      .map(([id]) => id)
+  )
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box',
+    padding: '10px 14px', borderRadius: 'var(--radius)',
+    border: '1px solid var(--rule)', background: 'var(--surface)',
+    color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: 'inherit',
+  }
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  function openEditModal(d: Deliverable) {
+    setEditModal(d)
+    setEditModalTitle(d.title)
+    setEditModalDue(d.due_date)
+  }
+
+  async function toggleProjectSubscription() {
+    setTogglingProjectSub(true)
+    if (subscribedToProject) {
+      setSubscribedToProject(false)
+      setProjectSubsList(prev => prev.filter(s => s.user_id !== userId))
+      await supabase.from('project_subscriptions').delete().eq('project_id', project.id).eq('user_id', userId)
+    } else {
+      setSubscribedToProject(true)
+      setProjectSubsList(prev => [...prev, { user_id: userId, first_name: null, username: null }])
+      await supabase.from('project_subscriptions').insert({ project_id: project.id, user_id: userId })
+    }
+    setTogglingProjectSub(false)
+  }
+
+  async function toggleDeliverableSubscription(deliverableId: string, e?: React.MouseEvent) {
+    e?.stopPropagation()
+    const isSubbed = myDeliverableSubIds.has(deliverableId)
+    if (isSubbed) {
+      setDeliverableSubsMap(prev => ({
+        ...prev,
+        [deliverableId]: (prev[deliverableId] ?? []).filter(s => s.user_id !== userId),
+      }))
+      await supabase.from('deliverable_subscriptions').delete().eq('deliverable_id', deliverableId).eq('user_id', userId)
+    } else {
+      setDeliverableSubsMap(prev => ({
+        ...prev,
+        [deliverableId]: [...(prev[deliverableId] ?? []), { user_id: userId, first_name: null, username: null }],
+      }))
+      await supabase.from('deliverable_subscriptions').insert({ deliverable_id: deliverableId, user_id: userId })
+    }
+  }
 
   async function submitProposal() {
     if (!workDesc.trim() || !reward.trim()) return
@@ -103,13 +241,6 @@ export default function ProjectDetailClient({
     setSubmitting(false)
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box',
-    padding: '10px 14px', borderRadius: 'var(--radius)',
-    border: '1px solid var(--rule)', background: 'var(--surface)',
-    color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: 'inherit',
-  }
-
   async function addSubtask() {
     if (!newTaskTitle.trim()) return
     setAddingTask(true)
@@ -128,7 +259,7 @@ export default function ProjectDetailClient({
     }
     setDeliverables(prev => [...prev, data])
     setNewTaskTitle('')
-    setNewTaskDue('')
+    setNewTaskDue(null)
     setAddingTask(false)
   }
 
@@ -137,14 +268,29 @@ export default function ProjectDetailClient({
     await supabase.from('deliverables').update({ status: newStatus }).eq('id', taskId)
   }
 
-  async function deleteTask(taskId: string) {
-    setDeliverables(prev => prev.filter(d => d.id !== taskId))
-    await supabase.from('deliverables').delete().eq('id', taskId)
+  async function saveDeliverableEdit() {
+    if (!editModal || !editModalTitle.trim()) return
+    setEditModalSaving(true)
+    const { error } = await supabase.from('deliverables').update({
+      title: editModalTitle.trim(),
+      due_date: editModalDue,
+    }).eq('id', editModal.id)
+    if (!error) {
+      setDeliverables(prev => prev.map(d =>
+        d.id === editModal.id ? { ...d, title: editModalTitle.trim(), due_date: editModalDue } : d
+      ))
+      setEditModal(null)
+    }
+    setEditModalSaving(false)
   }
 
-  /** Accept a pending proposal: flip its status to 'accepted' and spawn a
-   * matching deliverable that lands in the backlog column. The deliverable
-   * carries from_agreement_id so we can trace the link later. */
+  async function deleteDeliverableFromModal() {
+    if (!editModal) return
+    setDeliverables(prev => prev.filter(d => d.id !== editModal.id))
+    await supabase.from('deliverables').delete().eq('id', editModal.id)
+    setEditModal(null)
+  }
+
   async function acceptProposal(agreementId: string, targetStatus: string = 'backlog') {
     const proposal = pendingProposals.find(p => p.id === agreementId)
     if (!proposal) return
@@ -231,10 +377,13 @@ export default function ProjectDetailClient({
       status: editStatus,
       open_for_collaborators: editOpenCollab,
       circle: editCircle || null,
+      deadline: editDeadline || null,
     }).eq('id', project.id)
     setSavingSettings(false)
     router.refresh()
   }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="ops-detail-root" style={{ maxWidth: 920, margin: '0 auto', padding: '48px 20px 80px' }}>
@@ -244,38 +393,97 @@ export default function ProjectDetailClient({
         ← Operations
       </Link>
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-          <h1 className="ops-detail-h1" style={{ fontFamily: 'var(--display)', fontSize: 28, color: 'var(--ink)', lineHeight: 1.1 }}>
-            {project.title}
-          </h1>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: s.color, background: `${s.color}15`, padding: '3px 10px', borderRadius: 20 }}>
-            {s.label}
-          </span>
-          {project.open_for_collaborators && isActiveProject(project.status) && (
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3b82f6', background: '#3b82f615', padding: '3px 10px', borderRadius: 20 }}>
-              Open for collaborators
-            </span>
-          )}
-          {isPillar(project.circle) && (() => {
-            const m = PILLAR_META[project.circle]
-            return (
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: m.color, background: `${m.color}15`, padding: '3px 10px', borderRadius: 20 }}>
-                {m.emoji} {m.label}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+              <h1 className="ops-detail-h1" style={{ fontFamily: 'var(--display)', fontSize: 28, color: 'var(--ink)', lineHeight: 1.1, margin: 0 }}>
+                {project.title}
+              </h1>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: s.color, background: `${s.color}15`, padding: '3px 10px', borderRadius: 20 }}>
+                {s.label}
               </span>
-            )
-          })()}
+              {project.open_for_collaborators && isActiveProject(project.status) && (
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3b82f6', background: '#3b82f615', padding: '3px 10px', borderRadius: 20 }}>
+                  Open for collaborators
+                </span>
+              )}
+              {isPillar(project.circle) && (() => {
+                const m = PILLAR_META[project.circle]
+                return (
+                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: m.color, background: `${m.color}15`, padding: '3px 10px', borderRadius: 20 }}>
+                    {m.emoji} {m.label}
+                  </span>
+                )
+              })()}
+            </div>
+
+            {/* Deadline display */}
+            {project.deadline && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span style={{
+                  fontSize: 12, color: (() => {
+                    if (['done', 'review'].includes(project.status)) return 'var(--ink-4)'
+                    const d = new Date(project.deadline); d.setHours(0,0,0,0)
+                    const now = new Date(); now.setHours(0,0,0,0)
+                    return d < now ? '#ef4444' : 'var(--ink-3)'
+                  })(),
+                  fontFamily: 'var(--mono)',
+                }}>
+                  Due {fmtDate(project.deadline)}
+                </span>
+              </div>
+            )}
+
+            {project.description && (
+              <p style={{ color: 'var(--ink-2)', fontSize: 15, lineHeight: 1.65, maxWidth: 640, margin: '0 0 12px' }}>
+                {project.description}
+              </p>
+            )}
+          </div>
+
+          {/* Subscribe button */}
+          <button
+            onClick={toggleProjectSubscription}
+            disabled={togglingProjectSub}
+            title={subscribedToProject ? 'Unsubscribe from project' : 'Subscribe to project'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              background: subscribedToProject ? 'color-mix(in srgb, var(--m7) 12%, var(--surface))' : 'var(--bg-2)',
+              color: subscribedToProject ? 'var(--m7)' : 'var(--ink-3)',
+              border: `1px solid ${subscribedToProject ? 'color-mix(in srgb, var(--m7) 35%, var(--rule))' : 'var(--rule)'}`,
+              cursor: togglingProjectSub ? 'not-allowed' : 'pointer',
+              transition: 'all 140ms',
+              flexShrink: 0,
+            }}
+          >
+            <BellIcon filled={subscribedToProject} />
+            {subscribedToProject ? 'Subscribed' : 'Subscribe'}
+          </button>
         </div>
-        {project.description && (
-          <p style={{ color: 'var(--ink-2)', fontSize: 15, lineHeight: 1.65, maxWidth: 640 }}>
-            {project.description}
-          </p>
+
+        {/* Project subscribers */}
+        {projectSubsList.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <SubscriberAvatars subs={projectSubsList} size={22} />
+            <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+              {projectSubsList.length} subscriber{projectSubsList.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         )}
+
         {canPropose && !hasBlockingProposal && (
           <button
             onClick={() => setShowProposalForm(v => !v)}
-            style={{ display: 'block', width: '100%', maxWidth: 260, marginTop: 16, background: showProposalForm ? 'var(--bg-2)' : '#3b82f6', color: showProposalForm ? 'var(--ink-3)' : '#fff', fontSize: 13, fontWeight: 600, padding: '10px 20px', borderRadius: 'var(--radius)', border: showProposalForm ? '1px solid var(--rule)' : 'none', cursor: 'pointer', textAlign: 'center' }}
+            style={{ display: 'block', width: '100%', maxWidth: 260, marginTop: 4, background: showProposalForm ? 'var(--bg-2)' : '#3b82f6', color: showProposalForm ? 'var(--ink-3)' : '#fff', fontSize: 13, fontWeight: 600, padding: '10px 20px', borderRadius: 'var(--radius)', border: showProposalForm ? '1px solid var(--rule)' : 'none', cursor: 'pointer', textAlign: 'center' }}
           >
             {showProposalForm ? 'Cancel' : 'Propose collaboration →'}
           </button>
@@ -283,7 +491,7 @@ export default function ProjectDetailClient({
         {canPropose && hasBlockingProposal && myProposal && (() => {
           const info = PROPOSAL_STATUS_INFO[myProposal.status]
           return (
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 16, background: `${info.color}12`, border: `1px solid ${info.color}40`, borderRadius: 'var(--radius)', padding: '8px 14px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4, background: `${info.color}12`, border: `1px solid ${info.color}40`, borderRadius: 'var(--radius)', padding: '8px 14px' }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: info.color }}>{info.label}</span>
               <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{info.note}</span>
             </div>
@@ -362,10 +570,10 @@ export default function ProjectDetailClient({
 
       <div className="ops-detail-grid" style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 340px' : '1fr', gap: 32 }}>
 
-        {/* ── Left column ──────────────────────────────────────────────────── */}
+        {/* ── Left column ────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
-          {/* ── Project Kanban: Ideas (proposals) + deliverables ──────────── */}
+          {/* ── Subtask kanban ───────────────────────────────────────────────── */}
           <div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
               <span>
@@ -375,11 +583,8 @@ export default function ProjectDetailClient({
             </div>
 
             {canManage && (
-              <div style={{
-                background: 'var(--bg-2)', border: '1px solid var(--rule)',
-                borderRadius: 10, padding: '14px 16px', marginBottom: 14,
-              }}>
-                <div className="ops-subtask-form" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+                <div className="ops-subtask-form" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <input
                     type="text"
                     value={newTaskTitle}
@@ -388,12 +593,14 @@ export default function ProjectDetailClient({
                     placeholder="New subtask title…"
                     style={{ ...inputStyle, flex: '1 1 200px', padding: '8px 12px', fontSize: 13 }}
                   />
-                  <input
-                    type="date"
-                    value={newTaskDue}
-                    onChange={e => setNewTaskDue(e.target.value)}
-                    style={{ ...inputStyle, width: 'auto', padding: '8px 12px', fontSize: 13, colorScheme: 'dark' }}
-                  />
+                  <div style={{ flexShrink: 0 }}>
+                    <CalendarPicker
+                      value={newTaskDue}
+                      onChange={setNewTaskDue}
+                      placeholder="Due date"
+                      align="right"
+                    />
+                  </div>
                   <button
                     onClick={addSubtask}
                     disabled={addingTask || !newTaskTitle.trim()}
@@ -402,6 +609,7 @@ export default function ProjectDetailClient({
                       padding: '8px 18px', borderRadius: 8, border: 'none', whiteSpace: 'nowrap',
                       cursor: addingTask || !newTaskTitle.trim() ? 'not-allowed' : 'pointer',
                       opacity: addingTask || !newTaskTitle.trim() ? 0.55 : 1,
+                      flexShrink: 0,
                     }}
                   >
                     {addingTask ? 'Adding…' : '+ Add'}
@@ -436,8 +644,7 @@ export default function ProjectDetailClient({
                     }}
                     style={{
                       background: isTarget ? `${col.color}10` : 'var(--bg-2)',
-                      borderRadius: 10,
-                      padding: 8,
+                      borderRadius: 10, padding: 8,
                       border: isTarget ? `1px dashed ${col.color}` : '1px solid transparent',
                       transition: 'background 120ms, border-color 120ms',
                       minHeight: 100,
@@ -472,7 +679,7 @@ export default function ProjectDetailClient({
                             onDragEnd={() => { setDragging(null); setDropTarget(null) }}
                             style={{
                               background: 'var(--surface)', border: '1px solid var(--rule)',
-                              borderLeft: `3px solid #3b82f6`,
+                              borderLeft: '3px solid #3b82f6',
                               borderRadius: 8, padding: '10px 12px', marginBottom: 6,
                               cursor: canManage ? 'grab' : 'default',
                               opacity: dragging?.id === proposal.id ? 0.5 : 1,
@@ -500,6 +707,9 @@ export default function ProjectDetailClient({
                       cards.map(c => {
                         const d = c as Deliverable
                         const assignee = d.user_profiles?.first_name ?? d.user_profiles?.username ?? null
+                        const isSubbed = myDeliverableSubIds.has(d.id)
+                        const subsList = deliverableSubsMap[d.id] ?? []
+                        const isOverdue = d.due_date && !['done', 'review'].includes(d.status) && new Date(d.due_date) < new Date()
                         return (
                           <div
                             key={d.id}
@@ -511,12 +721,19 @@ export default function ProjectDetailClient({
                               setDragging({ kind: 'deliverable', id: d.id })
                             }}
                             onDragEnd={() => { setDragging(null); setDropTarget(null) }}
+                            onClick={() => {
+                              if (dragging) return
+                              openEditModal(d)
+                            }}
                             style={{
                               background: 'var(--surface)', border: '1px solid var(--rule)',
                               borderRadius: 8, padding: '8px 10px', marginBottom: 6,
-                              cursor: canManage ? 'grab' : 'default',
+                              cursor: canManage ? 'grab' : 'pointer',
                               opacity: dragging?.id === d.id ? 0.5 : 1,
+                              transition: 'box-shadow 120ms',
                             }}
+                            onMouseEnter={e => { if (!canManage || !dragging) (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
                           >
                             <div style={{
                               fontSize: 12, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, marginBottom: 6,
@@ -525,18 +742,32 @@ export default function ProjectDetailClient({
                             }}>
                               {d.title}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
-                              {assignee && <span>· {assignee}</span>}
-                              {d.due_date && <span>· {fmtDate(d.due_date)}</span>}
-                              {canManage && (
-                                <button
-                                  onClick={() => deleteTask(d.id)}
-                                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
-                                  title="Remove subtask"
-                                >
-                                  ×
-                                </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+                                {assignee && <span>{assignee}</span>}
+                                {d.due_date && (
+                                  <span style={{ color: isOverdue ? '#ef4444' : 'var(--ink-4)' }}>
+                                    {assignee ? '· ' : ''}{fmtDate(d.due_date)}
+                                  </span>
+                                )}
+                              </div>
+                              {subsList.length > 0 && (
+                                <SubscriberAvatars subs={subsList} size={16} />
                               )}
+                              <button
+                                onClick={(e) => toggleDeliverableSubscription(d.id, e)}
+                                title={isSubbed ? 'Unsubscribe' : 'Subscribe'}
+                                style={{
+                                  background: 'none', border: 'none', padding: '2px 3px',
+                                  cursor: 'pointer', borderRadius: 4,
+                                  color: isSubbed ? 'var(--m7)' : 'var(--ink-4)',
+                                  display: 'flex', alignItems: 'center',
+                                  transition: 'color 120ms',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <BellIcon filled={isSubbed} />
+                              </button>
                             </div>
                           </div>
                         )
@@ -548,7 +779,7 @@ export default function ProjectDetailClient({
             </div>
           </div>
 
-          {/* ── Updates feed ──────────────────────────────────────────────── */}
+          {/* ── Updates feed ─────────────────────────────────────────────────── */}
           <div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 14 }}>
               Updates
@@ -598,13 +829,12 @@ export default function ProjectDetailClient({
           </div>
         </div>
 
-        {/* ── Right column — admin panel only ──────────────────────────────── */}
+        {/* ── Right column — admin panel ────────────────────────────────────── */}
         {isAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Project settings */}
             <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 'var(--radius)', padding: '16px' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 12 }}>Project settings</div>
+
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>Status</label>
                 <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ ...inputStyle, padding: '8px 12px', fontSize: 13 }}>
@@ -616,6 +846,12 @@ export default function ProjectDetailClient({
                   <option value="paused">Paused</option>
                 </select>
               </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>Deadline</label>
+                <CalendarPicker value={editDeadline} onChange={setEditDeadline} placeholder="No deadline" />
+              </div>
+
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>Circle</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -628,8 +864,7 @@ export default function ProjectDetailClient({
                         type="button"
                         onClick={() => setEditCircle(active ? '' : p)}
                         style={{
-                          fontSize: 11, fontWeight: 600,
-                          padding: '4px 9px', borderRadius: 20,
+                          fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 20,
                           background: active ? meta.color : 'var(--surface)',
                           color: active ? '#fff' : 'var(--ink-3)',
                           border: `1px solid ${active ? meta.color : 'var(--rule)'}`,
@@ -642,19 +877,172 @@ export default function ProjectDetailClient({
                   })}
                 </div>
               </div>
+
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 14 }}>
                 <input type="checkbox" checked={editOpenCollab} onChange={e => setEditOpenCollab(e.target.checked)} style={{ accentColor: '#4338ca' }} />
                 <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>Open for collaborators</span>
               </label>
-              <button onClick={saveProjectSettings} disabled={savingSettings} style={{ background: '#4338ca', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius)', border: 'none', cursor: savingSettings ? 'not-allowed' : 'pointer', opacity: savingSettings ? 0.65 : 1 }}>
+
+              <button
+                onClick={saveProjectSettings}
+                disabled={savingSettings}
+                style={{ background: '#4338ca', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius)', border: 'none', cursor: savingSettings ? 'not-allowed' : 'pointer', opacity: savingSettings ? 0.65 : 1 }}
+              >
                 {savingSettings ? 'Saving…' : 'Save settings'}
               </button>
             </div>
-
           </div>
         )}
 
       </div>
+
+      {/* ── Subtask edit modal ─────────────────────────────────────────────────── */}
+      {editModal && (
+        <div
+          onClick={() => setEditModal(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface)', borderRadius: 14,
+              border: '1px solid var(--rule)',
+              width: '100%', maxWidth: 480,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+              animation: 'calFadeIn 160ms ease',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal header */}
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid var(--rule)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+                Subtask
+              </div>
+              <button
+                onClick={() => setEditModal(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 0, display: 'flex' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div style={{ padding: '20px' }}>
+              {/* Title */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>
+                  Title
+                </label>
+                {canManage ? (
+                  <input
+                    type="text"
+                    value={editModalTitle}
+                    onChange={e => setEditModalTitle(e.target.value)}
+                    style={{ ...inputStyle, fontSize: 15, fontWeight: 500 }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.4 }}>
+                    {editModal.title}
+                  </div>
+                )}
+              </div>
+
+              {/* Due date */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>
+                  Due date
+                </label>
+                {canManage ? (
+                  <CalendarPicker value={editModalDue} onChange={setEditModalDue} placeholder="No due date" />
+                ) : (
+                  <div style={{ fontSize: 13, color: editModal.due_date ? 'var(--ink-2)' : 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+                    {editModal.due_date ? fmtDate(editModal.due_date) : 'No due date'}
+                  </div>
+                )}
+              </div>
+
+              {/* Subscribe toggle */}
+              <div style={{ marginBottom: (() => {
+                const subs = deliverableSubsMap[editModal.id] ?? []
+                return subs.length > 0 ? 12 : 0
+              })() }}>
+                <button
+                  onClick={() => toggleDeliverableSubscription(editModal.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '8px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    background: myDeliverableSubIds.has(editModal.id) ? 'color-mix(in srgb, var(--m7) 12%, var(--surface))' : 'var(--bg-2)',
+                    color: myDeliverableSubIds.has(editModal.id) ? 'var(--m7)' : 'var(--ink-3)',
+                    border: `1px solid ${myDeliverableSubIds.has(editModal.id) ? 'color-mix(in srgb, var(--m7) 35%, var(--rule))' : 'var(--rule)'}`,
+                    cursor: 'pointer', transition: 'all 140ms',
+                  }}
+                >
+                  <BellIcon filled={myDeliverableSubIds.has(editModal.id)} />
+                  {myDeliverableSubIds.has(editModal.id) ? 'Subscribed' : 'Subscribe to updates'}
+                </button>
+              </div>
+
+              {/* Subscriber avatars */}
+              {(() => {
+                const subs = deliverableSubsMap[editModal.id] ?? []
+                if (!subs.length) return null
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
+                    <SubscriberAvatars subs={subs} size={22} />
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
+                      {subs.length} subscriber{subs.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Modal footer */}
+            {canManage && (
+              <div style={{
+                padding: '14px 20px', borderTop: '1px solid var(--rule)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <button
+                  onClick={deleteDeliverableFromModal}
+                  style={{ background: 'none', border: '1px solid #fecaca', color: '#dc2626', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  Delete subtask
+                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setEditModal(null)}
+                    style={{ background: 'none', border: '1px solid var(--rule)', color: 'var(--ink-3)', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveDeliverableEdit}
+                    disabled={editModalSaving || !editModalTitle.trim()}
+                    style={{
+                      background: 'var(--m7)', color: '#fff', fontSize: 12, fontWeight: 600,
+                      padding: '7px 18px', borderRadius: 8, border: 'none',
+                      cursor: editModalSaving || !editModalTitle.trim() ? 'not-allowed' : 'pointer',
+                      opacity: editModalSaving || !editModalTitle.trim() ? 0.65 : 1,
+                    }}
+                  >
+                    {editModalSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

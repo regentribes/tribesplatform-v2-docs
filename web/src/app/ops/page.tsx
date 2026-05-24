@@ -1,8 +1,9 @@
 import { createClient } from '@/core/lib/supabase/server'
 import OpsClient from '@/modules/m07-ops/OpsClient'
-import { isOpsAdmin } from '@/core/lib/roles'
+import { isOpsAdmin, isJoiningOrAbove } from '@/core/lib/roles'
 import { promoteToMemberIfEligible } from '@/core/lib/promotions'
 import { isActiveProject } from '@/core/lib/project-status'
+import type { SubscriberProfile } from '@/modules/m07-ops/types'
 
 export default async function OpsPage() {
   const supabase = await createClient()
@@ -20,7 +21,6 @@ export default async function OpsPage() {
     userRole = profile?.role ?? 'explorer'
     leadCircles = profile?.lead_circles ?? []
     isAdmin = isOpsAdmin(userRole)
-
     userRole = await promoteToMemberIfEligible(supabase, user.id, userRole)
   }
 
@@ -60,6 +60,23 @@ export default async function OpsPage() {
     author_first_name: u.user_profiles?.first_name ?? null,
   }))
 
+  // Fetch project subscribers for board cards
+  const { data: subsRaw } = await supabase
+    .from('project_subscriptions')
+    .select('project_id, user_id, user_profiles(first_name, username)')
+
+  // Group subscribers by project
+  const projectSubscribers: Record<string, SubscriberProfile[]> = {}
+  for (const row of subsRaw ?? []) {
+    const s = row as any
+    if (!projectSubscribers[s.project_id]) projectSubscribers[s.project_id] = []
+    projectSubscribers[s.project_id].push({
+      user_id: s.user_id,
+      first_name: s.user_profiles?.first_name ?? null,
+      username: s.user_profiles?.username ?? null,
+    })
+  }
+
   const allProjects = projects ?? []
   const activeCount = allProjects.filter(p => isActiveProject(p.status)).length
   const deliverableCount = deliverables.length
@@ -89,6 +106,8 @@ export default async function OpsPage() {
       userRole={userRole}
       leadCircles={leadCircles}
       sprintName={sprintName}
+      projectSubscribers={projectSubscribers}
+      canPropose={isJoiningOrAbove(userRole)}
     />
   )
 }

@@ -8,9 +8,9 @@ import { isPillar, PILLAR_META } from '@/core/lib/pillars'
 import { PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
 import { DeliverablesTab } from './DeliverablesTab'
 import { UpdatesTab } from './UpdatesTab'
-import type { Project, Deliverable, ProjectUpdate } from './types'
+import type { Project, Deliverable, ProjectUpdate, SubscriberProfile } from './types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface OpsClientProps {
   projects: Project[]
@@ -25,20 +25,11 @@ interface OpsClientProps {
   userRole: string
   leadCircles: string[]
   sprintName: string | null
+  projectSubscribers: Record<string, SubscriberProfile[]>
+  canPropose: boolean
 }
 
-/** Whether the current user can drag a project between Kanban columns.
- *   - admin                    → any project
- *   - project_lead             → projects they created or lead
- *   - circle_lead              → projects in circles they lead
- *   - member / joining / etc.  → cannot move
- */
-function canMoveProject(
-  p: Project,
-  userId: string | null,
-  userRole: string,
-  leadCircles: string[],
-): boolean {
+function canMoveProject(p: Project, userId: string | null, userRole: string, leadCircles: string[]): boolean {
   if (!userId) return false
   if (userRole === 'admin') return true
   if (userRole === 'project_lead' && (p.created_by === userId || p.lead_user_id === userId)) return true
@@ -46,76 +37,80 @@ function canMoveProject(
   return false
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+// ─── Subscriber Avatars ──────────────────────────────────────────────────────
 
-function StatCard({
-  label,
-  value,
-  delta,
-  valueColor = 'var(--ink)',
-}: {
-  label: string
-  value: string | number
-  delta: string
-  valueColor?: string
-}) {
+function SubscriberAvatars({ subscribers, max = 3 }: { subscribers: SubscriberProfile[]; max?: number }) {
+  if (!subscribers.length) return null
+  const shown = subscribers.slice(0, max)
+  const overflow = subscribers.length - max
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--rule)',
-      borderRadius: 10,
-      padding: '14px 16px',
-    }}>
-      <div style={{
-        fontFamily: 'var(--mono)',
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'var(--ink-3)',
-        marginBottom: 4,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontFamily: 'var(--mono)',
-        fontSize: 26,
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
-        color: valueColor,
-      }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
-        {delta}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {shown.map((s, i) => {
+        const label = s.first_name?.[0] ?? s.username?.[0] ?? '?'
+        return (
+          <div key={s.user_id} title={s.first_name ?? s.username ?? ''} style={{
+            width: 18, height: 18, borderRadius: '50%',
+            background: `hsl(${(s.user_id.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
+            border: '1.5px solid var(--surface)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 9, fontWeight: 700, color: '#fff',
+            marginLeft: i === 0 ? 0 : -4, zIndex: max - i,
+            position: 'relative',
+          }}>
+            {label.toUpperCase()}
+          </div>
+        )
+      })}
+      {overflow > 0 && (
+        <div style={{
+          width: 18, height: 18, borderRadius: '50%',
+          background: 'var(--bg-3)', border: '1.5px solid var(--surface)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 8, fontWeight: 700, color: 'var(--ink-3)',
+          marginLeft: -4, position: 'relative',
+        }}>
+          +{overflow}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
+// ─── Stat Card ───────────────────────────────────────────────────────────────
 
-// ─── Project Kanban Card ──────────────────────────────────────────────────────
+function StatCard({ label, value, delta, valueColor = 'var(--ink)' }: {
+  label: string; value: string | number; delta: string; valueColor?: string
+}) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: valueColor }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{delta}</div>
+    </div>
+  )
+}
+
+// ─── Project Kanban Card ─────────────────────────────────────────────────────
 
 function ProjectKanbanCard({
-  project,
-  subtaskCount,
-  doneCount,
-  canMove,
-  onDragStart,
-  onDragEnd,
-  isDragging,
+  project, subtaskCount, doneCount, canMove, subscribers,
+  onDragStart, onDragEnd, isDragging,
 }: {
-  project: Project
-  subtaskCount: number
-  doneCount: number
-  canMove: boolean
-  onDragStart?: (id: string) => void
-  onDragEnd?: () => void
-  isDragging?: boolean
+  project: Project; subtaskCount: number; doneCount: number; canMove: boolean
+  subscribers: SubscriberProfile[]
+  onDragStart?: (id: string) => void; onDragEnd?: () => void; isDragging?: boolean
 }) {
   const circleMeta = isPillar(project.circle) ? PILLAR_META[project.circle] : null
   const accent = circleMeta?.color ?? 'var(--m7)'
+
+  const deadline = project.deadline ? new Date(project.deadline + 'T00:00:00') : null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const isOverdue = deadline && deadline < today && project.status !== 'done'
+
   return (
     <Link href={`/ops/${project.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
       <div
@@ -127,72 +122,63 @@ function ProjectKanbanCard({
         } : undefined}
         onDragEnd={canMove ? () => onDragEnd?.() : undefined}
         style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--rule)',
-          borderLeft: `3px solid ${accent}`,
-          borderRadius: 8,
-          padding: '10px 12px',
-          boxShadow: 'var(--shadow-sm)',
+          background: 'var(--surface)', border: '1px solid var(--rule)',
+          borderLeft: `3px solid ${accent}`, borderRadius: 8,
+          padding: '10px 12px', boxShadow: 'var(--shadow-sm)',
           cursor: canMove ? 'grab' : 'pointer',
           opacity: isDragging ? 0.5 : 1,
         }}
       >
-        <div style={{
-          fontSize: 13,
-          fontWeight: 600,
-          marginBottom: 6,
-          color: 'var(--ink)',
-          lineHeight: 1.35,
-        }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 5, color: 'var(--ink)', lineHeight: 1.35 }}>
           {project.title}
         </div>
+
         {circleMeta && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: circleMeta.color, background: `${circleMeta.color}15`, padding: '1px 6px', borderRadius: 20, marginBottom: 6 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: circleMeta.color, background: `${circleMeta.color}15`, padding: '1px 6px', borderRadius: 20, marginBottom: 5 }}>
             {circleMeta.emoji} {circleMeta.label}
           </div>
         )}
+
         {project.description && (
           <p style={{
-            fontSize: 11,
-            color: 'var(--ink-3)',
-            margin: '0 0 6px',
-            lineHeight: 1.4,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            fontSize: 11, color: 'var(--ink-3)', margin: '0 0 6px', lineHeight: 1.4,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {project.description}
           </p>
         )}
-        <div style={{
-          fontFamily: 'var(--mono)',
-          fontSize: 10,
-          color: 'var(--ink-4)',
-          marginTop: 4,
-        }}>
-          {subtaskCount === 0 ? 'no subtasks' : `${doneCount}/${subtaskCount} done`}
+
+        {/* Footer row: subtasks + deadline + subscribers */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, flexWrap: 'wrap', gap: 4 }}>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>
+            {subtaskCount === 0 ? 'no subtasks' : `${doneCount}/${subtaskCount} done`}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {deadline && (
+              <span style={{
+                fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600,
+                color: isOverdue ? '#ef4444' : 'var(--ink-4)',
+                background: isOverdue ? '#fef2f2' : 'transparent',
+                padding: isOverdue ? '1px 4px' : 0, borderRadius: 4,
+              }}>
+                {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+            )}
+            <SubscriberAvatars subscribers={subscribers} />
+          </div>
         </div>
       </div>
     </Link>
   )
 }
 
-// ─── Main Client Component ────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function OpsClient({
-  projects,
-  deliverables: initialDeliverables,
-  updates,
-  activeCount,
-  deliverableCount,
-  doneCount,
-  atRiskCount,
-  isAdmin,
-  userId,
-  userRole,
-  leadCircles,
-  sprintName,
+  projects, deliverables: initialDeliverables, updates,
+  activeCount, deliverableCount, doneCount, atRiskCount,
+  isAdmin, userId, userRole, leadCircles, sprintName,
+  projectSubscribers, canPropose,
 }: OpsClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'board' | 'deliverables' | 'updates'>('board')
@@ -204,7 +190,6 @@ export default function OpsClient({
     const p = boardProjects.find(x => x.id === projectId)
     if (!p || p.status === newStatus) return
     if (!canMoveProject(p, userId, userRole, leadCircles)) return
-
     setBoardProjects(prev => prev.map(x => x.id === projectId ? { ...x, status: newStatus } : x))
     const supabase = createClient()
     const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
@@ -215,12 +200,10 @@ export default function OpsClient({
     }
   }
 
-  // Sprint info
   const sprintLabel = sprintName ?? 'Community Projects'
   const onTrackCount = initialDeliverables.filter(d => d.status === 'in_progress').length
   const totalProjects = boardProjects.filter(p => ['backlog', 'in_progress', 'review'].includes(p.status)).length
 
-  // Subtask counts per project for the card footer
   const subtasksByProject = new Map<string, { total: number; done: number }>()
   for (const d of initialDeliverables) {
     const e = subtasksByProject.get(d.project_id) ?? { total: 0, done: 0 }
@@ -229,122 +212,56 @@ export default function OpsClient({
     subtasksByProject.set(d.project_id, e)
   }
 
-  // Kanban: group projects by status (paused projects don't appear on the board)
   const grouped = Object.fromEntries(
-    PROJECT_KANBAN_COLUMNS.map(col => [
-      col.key,
-      boardProjects.filter(p => p.status === col.key),
-    ])
+    PROJECT_KANBAN_COLUMNS.map(col => [col.key, boardProjects.filter(p => p.status === col.key)])
   )
 
-  // Tab styles
   function tabStyle(tab: typeof activeTab): React.CSSProperties {
     const isActive = activeTab === tab
     return {
-      fontSize: 13,
-      fontWeight: isActive ? 600 : 400,
+      fontSize: 13, fontWeight: isActive ? 600 : 400,
       color: isActive ? 'var(--ink)' : 'var(--ink-3)',
-      padding: '8px 14px',
-      background: 'none',
-      border: 'none',
+      padding: '8px 14px', background: 'none', border: 'none',
       borderBottom: isActive ? '2px solid var(--m7)' : '2px solid transparent',
-      cursor: 'pointer',
-      marginBottom: -1,
-      transition: 'color 120ms',
-      outline: 'none',
+      cursor: 'pointer', marginBottom: -1, transition: 'color 120ms', outline: 'none',
     }
   }
 
   return (
     <div style={{ padding: '26px 32px 60px' }}>
 
-      {/* ── Page Head ─────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        marginBottom: 24,
-        gap: 16,
-        flexWrap: 'wrap',
-      }}>
+      {/* ── Page Head ─────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
-          {/* Eyebrow pill */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: '#4338ca18',
-            color: 'var(--m7)',
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            padding: '3px 10px',
-            borderRadius: 20,
-            marginBottom: 10,
-          }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'color-mix(in srgb, var(--m7) 10%, var(--surface))', color: 'var(--m7)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20, marginBottom: 10 }}>
             Module 07 · Operations
           </div>
-
-          {/* H1 */}
-          <h1 style={{
-            fontFamily: 'var(--display)',
-            fontSize: 28,
-            fontWeight: 700,
-            color: 'var(--ink)',
-            lineHeight: 1.1,
-            margin: '0 0 8px',
-          }}>
+          <h1 style={{ fontFamily: 'var(--display)', fontSize: 28, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 8px' }}>
             {sprintLabel}
           </h1>
-
-          {/* Sub */}
           <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
-            {activeCount} active project{activeCount !== 1 ? 's' : ''} &middot;{' '}
-            {deliverableCount} deliverable{deliverableCount !== 1 ? 's' : ''} &middot;{' '}
-            {doneCount} done
+            {activeCount} active · {deliverableCount} deliverable{deliverableCount !== 1 ? 's' : ''} · {doneCount} done
           </p>
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: 'var(--ink-2)',
-            background: 'var(--surface)',
-            border: '1px solid var(--rule)',
-            borderRadius: 8,
-            padding: '8px 16px',
-            cursor: 'pointer',
-          }}>
-            Timeline
-          </button>
-          <button style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: 'var(--ink-2)',
-            background: 'var(--surface)',
-            border: '1px solid var(--rule)',
-            borderRadius: 8,
-            padding: '8px 16px',
-            cursor: 'pointer',
-          }}>
-            Sprint review →
-          </button>
+          {/* Propose project — visible to joining+ non-admins */}
+          {canPropose && !isAdmin && (
+            <Link href="/ops/new" style={{
+              fontSize: 13, fontWeight: 500, color: 'var(--ink-2)',
+              background: 'var(--surface)', border: '1px solid var(--rule)',
+              borderRadius: 8, padding: '8px 16px', cursor: 'pointer',
+              textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block',
+            }}>
+              + Propose project
+            </Link>
+          )}
+          {/* Create project — visible to ops admins */}
           {isAdmin && (
             <Link href="/ops/new" style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#fff',
-              background: 'var(--m7)',
-              border: 'none',
-              borderRadius: 8,
-              padding: '8px 16px',
-              cursor: 'pointer',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              display: 'inline-block',
+              fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--m7)',
+              border: 'none', borderRadius: 8, padding: '8px 16px',
+              cursor: 'pointer', textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block',
             }}>
               + Project
             </Link>
@@ -352,67 +269,25 @@ export default function OpsClient({
         </div>
       </div>
 
-      {/* ── Stat Cards ────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-        gap: 10,
-        marginBottom: 18,
-      }}>
-        <StatCard
-          label="Active"
-          value={activeCount}
-          delta={`+${activeCount} this sprint`}
-        />
-        <StatCard
-          label="Deliverables"
-          value={deliverableCount}
-          delta={`${doneCount} done · ${deliverableCount - doneCount} to go`}
-        />
-        <StatCard
-          label="On track"
-          value={onTrackCount}
-          valueColor="var(--m5)"
-          delta="across active projects"
-        />
-        <StatCard
-          label="At risk"
-          value={atRiskCount}
-          valueColor={atRiskCount > 0 ? '#f59e0b' : 'var(--ink)'}
-          delta={atRiskCount === 0 ? 'no late items' : `${atRiskCount} overdue`}
-        />
-        <StatCard
-          label="Projects"
-          value={totalProjects}
-          delta={`${totalProjects} total`}
-        />
+      {/* ── Stat Cards ────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 18 }}>
+        <StatCard label="Active" value={activeCount} delta={`+${activeCount} this sprint`} />
+        <StatCard label="Deliverables" value={deliverableCount} delta={`${doneCount} done · ${deliverableCount - doneCount} to go`} />
+        <StatCard label="On track" value={onTrackCount} valueColor="var(--m5)" delta="across active projects" />
+        <StatCard label="At risk" value={atRiskCount} valueColor={atRiskCount > 0 ? '#f59e0b' : 'var(--ink)'} delta={atRiskCount === 0 ? 'no late items' : `${atRiskCount} overdue`} />
+        <StatCard label="Projects" value={totalProjects} delta={`${totalProjects} total`} />
       </div>
 
-      {/* ── Tab Row ───────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        gap: 2,
-        borderBottom: '1px solid var(--rule)',
-        marginBottom: 18,
-      }}>
-        <button onClick={() => setActiveTab('board')} style={tabStyle('board')}>
-          Board
-        </button>
-        <button onClick={() => setActiveTab('deliverables')} style={tabStyle('deliverables')}>
-          Deliverables
-        </button>
-        <button onClick={() => setActiveTab('updates')} style={tabStyle('updates')}>
-          Updates
-        </button>
+      {/* ── Tab Row ───────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--rule)', marginBottom: 18 }}>
+        <button onClick={() => setActiveTab('board')} style={tabStyle('board')}>Board</button>
+        <button onClick={() => setActiveTab('deliverables')} style={tabStyle('deliverables')}>Deliverables</button>
+        <button onClick={() => setActiveTab('updates')} style={tabStyle('updates')}>Updates</button>
       </div>
 
-      {/* ── Board Tab ─────────────────────────────────────────────────────── */}
+      {/* ── Board ─────────────────────────────────────────────────────── */}
       {activeTab === 'board' && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {PROJECT_KANBAN_COLUMNS.map(col => {
             const cards = grouped[col.key] ?? []
             const isTarget = dropTarget === col.key
@@ -425,77 +300,42 @@ export default function OpsClient({
                   e.dataTransfer.dropEffect = 'move'
                   if (dropTarget !== col.key) setDropTarget(col.key)
                 }}
-                onDragLeave={(e) => {
-                  if (e.currentTarget === e.target) setDropTarget(null)
-                }}
+                onDragLeave={(e) => { if (e.currentTarget === e.target) setDropTarget(null) }}
                 onDrop={(e) => {
                   e.preventDefault()
                   const id = e.dataTransfer.getData('text/plain')
                   if (id) moveProject(id, col.key)
-                  setDropTarget(null)
-                  setDraggingId(null)
+                  setDropTarget(null); setDraggingId(null)
                 }}
                 style={{
                   background: isTarget ? `${col.color}10` : 'var(--bg-2)',
-                  borderRadius: 10,
-                  padding: 10,
+                  borderRadius: 10, padding: 10,
                   border: isTarget ? `1px dashed ${col.color}` : '1px solid transparent',
                   transition: 'background 120ms, border-color 120ms',
                 }}
               >
-                {/* Column header */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 10,
-                }}>
-                  <span style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: 'var(--ink)',
-                  }}>
-                    {col.label}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{col.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{
-                      fontFamily: 'var(--mono)',
-                      fontSize: 10,
-                      color: 'var(--ink-3)',
-                    }}>
-                      {cards.length}
-                    </span>
-                    <div style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: col.color,
-                      flexShrink: 0,
-                    }} />
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>{cards.length}</span>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: col.color }} />
                   </div>
                 </div>
 
-                {/* Cards */}
                 {cards.length === 0 ? (
-                  <div style={{
-                    fontSize: 11,
-                    color: 'var(--ink-4)',
-                    padding: '12px 4px',
-                    textAlign: 'center',
-                  }}>
-                    Empty
-                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', padding: '12px 4px', textAlign: 'center' }}>Empty</div>
                 ) : (
                   cards.map(p => {
                     const stats = subtasksByProject.get(p.id) ?? { total: 0, done: 0 }
-                    const canMove = canMoveProject(p, userId, userRole, leadCircles)
+                    const subs = projectSubscribers[p.id] ?? []
                     return (
                       <ProjectKanbanCard
                         key={p.id}
                         project={p}
                         subtaskCount={stats.total}
                         doneCount={stats.done}
-                        canMove={canMove}
+                        canMove={canMoveProject(p, userId, userRole, leadCircles)}
+                        subscribers={subs}
                         onDragStart={(id) => setDraggingId(id)}
                         onDragEnd={() => { setDraggingId(null); setDropTarget(null) }}
                         isDragging={draggingId === p.id}
@@ -509,16 +349,12 @@ export default function OpsClient({
         </div>
       )}
 
-      {/* ── Deliverables Tab ──────────────────────────────────────────────── */}
       {activeTab === 'deliverables' && (
         <DeliverablesTab deliverables={initialDeliverables} projects={boardProjects} />
       )}
-
-      {/* ── Updates Tab ───────────────────────────────────────────────────── */}
       {activeTab === 'updates' && (
         <UpdatesTab updates={updates} projects={projects} />
       )}
-
     </div>
   )
 }
