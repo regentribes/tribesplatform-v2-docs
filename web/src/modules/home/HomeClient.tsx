@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { isFullMember as checkFullMember, isJoiningOrAbove } from '@/core/lib/roles'
+import { isFullMember as checkFullMember, isJoiningOrAbove, ROLE_LABELS } from '@/core/lib/roles'
 
 type PhaseP = { id: string; name: string; answered: number; total: number; ratio: number }
 type Member = { id: string; first_name: string | null; last_name: string | null; headline: string | null; city: string | null; country: string | null; avatar_url: string | null; username: string | null }
@@ -198,15 +198,6 @@ function Split({ children, reverse = false }: { children: React.ReactNode; rever
         : children}
     </div>
   )
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  explorer: 'Explorer',
-  joining: 'Joining Member',
-  member: 'Member',
-  circle_lead: 'Circle Lead',
-  project_lead: 'Project Lead',
-  admin: 'Admin',
 }
 
 export default function HomeClient({

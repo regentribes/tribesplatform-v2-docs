@@ -6,8 +6,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/core/lib/supabase/client'
 import { isPillar, PILLAR_META, PILLARS } from '@/core/lib/pillars'
 import { PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
+import { canMoveProject, projectEditBlock, type CircleDirectory, type PermissionNotice } from '@/core/lib/ops-permissions'
 import { DeliverablesTab } from './DeliverablesTab'
 import { UpdatesTab } from './UpdatesTab'
+import { CirclesTab } from './CirclesTab'
+import { PermissionNoticeModal } from './PermissionNoticeModal'
 import type { Project, Deliverable, ProjectUpdate, SubscriberProfile } from './types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -28,15 +31,11 @@ interface OpsClientProps {
   projectSubscribers: Record<string, SubscriberProfile[]>
   userProfiles: Record<string, { first_name: string | null; username: string | null }>
   canPropose: boolean
+  circleDirectory: CircleDirectory
+  initialTab: OpsTab
 }
 
-function canMoveProject(p: Project, userId: string | null, userRole: string, leadCircles: string[]): boolean {
-  if (!userId) return false
-  if (userRole === 'admin') return true
-  if (userRole === 'project_lead' && (p.created_by === userId || p.lead_user_id === userId)) return true
-  if (userRole === 'circle_lead' && p.circle && leadCircles.includes(p.circle)) return true
-  return false
-}
+type OpsTab = 'board' | 'deliverables' | 'updates' | 'circles'
 
 // ─── Subscriber Avatars ──────────────────────────────────────────────────────
 
@@ -109,12 +108,14 @@ function StatCard({ label, value, delta, valueColor = 'var(--ink)', onClick, act
 
 function ProjectKanbanCard({
   project, subtaskCount, doneCount, canMove, subscribers, leadName,
-  onDragStart, onDragEnd, isDragging,
+  onDragStart, onDragEnd, onBlockedDrag, isDragging,
 }: {
   project: Project; subtaskCount: number; doneCount: number; canMove: boolean
   subscribers: SubscriberProfile[]
   leadName: string | null
   onDragStart?: (id: string) => void; onDragEnd?: () => void; isDragging?: boolean
+  /** Called when the user tries to drag a card they can't move. */
+  onBlockedDrag?: () => void
 }) {
   const circleMeta = isPillar(project.circle) ? PILLAR_META[project.circle] : null
   const accent = circleMeta?.color ?? 'var(--m7)'
@@ -129,13 +130,16 @@ function ProjectKanbanCard({
   return (
     <Link href={`/ops/${project.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
       <div
-        draggable={canMove}
-        onDragStart={canMove ? (e) => {
+        // Blocked cards stay draggable so the attempt can explain itself
+        draggable={canMove || !!onBlockedDrag}
+        onDragStart={(e) => {
+          if (!canMove) { e.preventDefault(); onBlockedDrag?.(); return }
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData('text/plain', project.id)
           onDragStart?.(project.id)
-        } : undefined}
+        }}
         onDragEnd={canMove ? () => onDragEnd?.() : undefined}
+        title={canMove ? undefined : "You can't move this card — drag it to see why"}
         style={{
           background: 'var(--surface)', border: '1px solid var(--rule)',
           borderLeft: `3px solid ${accent}`, borderRadius: 8,
@@ -208,10 +212,11 @@ export default function OpsClient({
   projects, deliverables: initialDeliverables, updates,
   activeCount, deliverableCount, doneCount, atRiskCount,
   isAdmin, userId, userRole, leadCircles, sprintName,
-  projectSubscribers, userProfiles, canPropose,
+  projectSubscribers, userProfiles, canPropose, circleDirectory, initialTab,
 }: OpsClientProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'board' | 'deliverables' | 'updates'>('board')
+  const [activeTab, setActiveTab] = useState<OpsTab>(initialTab)
+  const [notice, setNotice] = useState<PermissionNotice | null>(null)
   const [boardProjects, setBoardProjects] = useState<Project[]>(projects)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
@@ -222,12 +227,19 @@ export default function OpsClient({
   async function moveProject(projectId: string, newStatus: string) {
     const p = boardProjects.find(x => x.id === projectId)
     if (!p || p.status === newStatus) return
-    if (!canMoveProject(p, userId, userRole, leadCircles)) return
+    const block = projectEditBlock(p, userId, userRole, leadCircles)
+    if (block) { setNotice(block); return }
     setBoardProjects(prev => prev.map(x => x.id === projectId ? { ...x, status: newStatus } : x))
     const supabase = createClient()
-    const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
-    if (error) {
+    // RLS rejects silently (0 rows, no error), so ask for the row back to tell
+    const { data, error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId).select('id')
+    if (error || !data?.length) {
       setBoardProjects(prev => prev.map(x => x.id === projectId ? { ...x, status: p.status } : x))
+      setNotice({
+        title: "That move didn't save",
+        message: error?.message ?? 'The database didn’t allow this change for your account. Ask a lead of this circle or an admin to move it.',
+        circle: isPillar(p.circle) ? p.circle : null,
+      })
     } else {
       router.refresh()
     }
@@ -258,6 +270,10 @@ export default function OpsClient({
   const mySubscribedProjectIds = new Set(
     userId ? Object.entries(projectSubscribers).filter(([, subs]) => subs.some(s => s.user_id === userId)).map(([id]) => id) : []
   )
+  const myInvolvedProjectIds = new Set([
+    ...myAssignedProjectIds, ...mySubscribedProjectIds,
+    ...(userId ? boardProjects.filter(p => p.lead_user_id === userId || p.created_by === userId).map(p => p.id) : []),
+  ])
 
   const filteredProjects = boardProjects.filter(p => {
     if (overdueOnly && !overdueProjectIds.has(p.id)) return false
@@ -345,6 +361,7 @@ export default function OpsClient({
         <button onClick={() => setActiveTab('board')} style={tabStyle('board')}>Board</button>
         <button onClick={() => setActiveTab('deliverables')} style={tabStyle('deliverables')}>Deliverables</button>
         <button onClick={() => setActiveTab('updates')} style={tabStyle('updates')}>Updates</button>
+        <button onClick={() => setActiveTab('circles')} style={tabStyle('circles')}>Circles</button>
       </div>
 
       {/* ── Board ─────────────────────────────────────────────────────── */}
@@ -476,6 +493,7 @@ export default function OpsClient({
                         subscribers={subs}
                         leadName={leadName}
                         onDragStart={(id) => setDraggingId(id)}
+                        onBlockedDrag={userId ? () => setNotice(projectEditBlock(p, userId, userRole, leadCircles)) : undefined}
                         onDragEnd={() => { setDraggingId(null); setDropTarget(null) }}
                         isDragging={draggingId === p.id}
                       />
@@ -495,6 +513,19 @@ export default function OpsClient({
       {activeTab === 'updates' && (
         <UpdatesTab updates={updates} projects={projects} />
       )}
+
+      {activeTab === 'circles' && (
+        <CirclesTab
+          directory={circleDirectory}
+          projects={boardProjects}
+          userId={userId}
+          userRole={userRole}
+          leadCircles={leadCircles}
+          involvedProjectIds={myInvolvedProjectIds}
+        />
+      )}
+
+      <PermissionNoticeModal notice={notice} directory={circleDirectory} onClose={() => setNotice(null)} />
     </div>
   )
 }

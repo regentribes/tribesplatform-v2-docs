@@ -2,6 +2,7 @@ import { createClient } from '@/core/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import ProjectDetailClient from '@/modules/m07-ops/ProjectDetailClient'
 import { isOpsAdmin } from '@/core/lib/roles'
+import { fetchCircleDirectory } from '@/core/lib/ops-permissions'
 import type { Project, ProjectUpdate, CollaborationAgreement, SubscriberProfile } from '@/modules/m07-ops/types'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,6 +82,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   // User-specific data — only when logged in
   let userId: string | null = null
   let userRole = 'explorer'
+  let leadCircles: string[] = []
   let isAdmin = false
   let isProjectCreator = false
   let isProjectSubscribed = false
@@ -89,7 +91,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   if (user) {
     userId = user.id
     const [profileRes, myProposalRes] = await Promise.all([
-      supabase.from('user_profiles').select('role, first_name').eq('id', user.id).maybeSingle(),
+      supabase.from('user_profiles').select('role, first_name, lead_circles').eq('id', user.id).maybeSingle(),
       supabase.from('collaboration_agreements')
         .select('id, work_description, expected_reward, conditions, status')
         .eq('project_id', id)
@@ -97,11 +99,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         .maybeSingle(),
     ])
     userRole = profileRes.data?.role ?? 'explorer'
+    leadCircles = profileRes.data?.lead_circles ?? []
     isAdmin = isOpsAdmin(userRole)
     isProjectCreator = project.created_by === user.id || project.lead_user_id === user.id
     isProjectSubscribed = projectSubscribers.some(s => s.user_id === user.id)
     myProposal = myProposalRes.data ?? null
   }
+
+  const circleDirectory = await fetchCircleDirectory(supabase)
 
   return (
     <ProjectDetailClient
@@ -112,6 +117,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       myProposal={myProposal}
       userId={userId}
       userRole={userRole}
+      leadCircles={leadCircles}
+      circleDirectory={circleDirectory}
       isAdmin={isAdmin}
       isProjectCreator={isProjectCreator}
       projectSubscribers={projectSubscribers}

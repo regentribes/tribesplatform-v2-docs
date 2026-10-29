@@ -3,9 +3,14 @@ import OpsClient from '@/modules/m07-ops/OpsClient'
 import { isOpsAdmin, isJoiningOrAbove } from '@/core/lib/roles'
 import { promoteToMemberIfEligible } from '@/core/lib/promotions'
 import { isActiveProject } from '@/core/lib/project-status'
+import { fetchCircleDirectory } from '@/core/lib/ops-permissions'
 import type { SubscriberProfile } from '@/modules/m07-ops/types'
 
-export default async function OpsPage() {
+const OPS_TABS = ['board', 'deliverables', 'updates', 'circles'] as const
+
+export default async function OpsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams
+  const initialTab = OPS_TABS.find(t => t === tab) ?? 'board'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -103,6 +108,7 @@ export default async function OpsPage() {
   }).length
 
   const sprintName = allProjects.find(p => p.sprint_name)?.sprint_name ?? null
+  const circleDirectory = await fetchCircleDirectory(supabase)
 
   return (
     <OpsClient
@@ -121,6 +127,8 @@ export default async function OpsPage() {
       projectSubscribers={projectSubscribers}
       userProfiles={userProfiles}
       canPropose={isJoiningOrAbove(userRole)}
+      circleDirectory={circleDirectory}
+      initialTab={initialTab}
     />
   )
 }

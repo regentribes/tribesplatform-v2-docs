@@ -26,3 +26,14 @@ export const isCircleLead = (role: string): boolean => role === 'circle_lead'
 // L3 Meritocracy voters
 export const isAdvisorOrAdmin = (role: string): boolean =>
   ['advisor', 'admin'].includes(role)
+
+// Display names for user_profiles.role
+export const ROLE_LABELS: Record<string, string> = {
+  explorer: 'Explorer',
+  joining: 'Joining Member',
+  member: 'Member',
+  circle_lead: 'Circle Lead',
+  project_lead: 'Project Lead',
+  advisor: 'Advisor',
+  admin: 'Admin',
+}

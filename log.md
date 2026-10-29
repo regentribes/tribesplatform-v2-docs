@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-10-29 — v3.55 — M07: blocked moves explain themselves + Circles tab
+
+Prompted by a circle_lead (`oj`: hardware/economy/tech) who couldn't drag a humanware card and got no explanation, then edited it from project settings, which showed a save but changed nothing (RLS returned 0 rows, no error, and the code never checked).
+
+- **`core/lib/ops-permissions.ts`** (new) — single home for `canMoveProject`, `projectEditBlock()` (why a user can't move/edit a project), `circleChangeBlock()` (circle_lead picking a circle they don't lead, or clearing the circle — the RLS check applies to the new row too), and `fetchCircleDirectory()` (circle leads + admins from `user_profiles`).
+- **Board** — blocked cards stay `draggable`; the drag start is cancelled and opens `PermissionNoticeModal` with the reason, the circle's leads and the admins. `moveProject` now does `.select('id')` and treats 0 rows as a failure.
+- **Project settings** — view-only banner when `projectEditBlock` applies, Save disabled, circle buttons explain instead of selecting, save checks rows returned.
+- **Circles tab** (`CirclesTab.tsx`, `/ops?tab=circles`) — leads per circle, project counts, "you lead this", and circles you're involved in. There is no circle-membership table; "involved" = lead/creator, assignee or watcher on a project in that circle.
+- `ROLE_LABELS` moved from `HomeClient` into `core/lib/roles.ts`.
+
+---
+
 ## 2026-10-29 — Fixed M01 travel match scoring (date tiers never fired)
 
 `match-score.ts` read `from_date` / `to_date` from `user_bio.places_traveling`, but the profile editor (and both profile views) write `startDate` / `endDate`. Every travel match fell through to the flat 4-pt "same destination" tier; the 10-pt (overlapping dates) and 6-pt (within 30 days) tiers never fired. The scorer now reads `startDate` / `endDate`. Verified all three tiers with sample plans. No DB change.

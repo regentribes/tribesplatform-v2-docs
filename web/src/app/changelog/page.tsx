@@ -2,6 +2,18 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.55',
+    date: '2026-10-29',
+    title: 'M07 Ops: explains blocked moves, new Circles tab, travel scoring fix',
+    items: [
+      'Trying to drag a board card you can\'t move now opens a pop-up explaining why (e.g. the project is in a circle you don\'t lead) and who can move it: that circle\'s leads and the admins.',
+      'Project settings: circle leads outside the project\'s circle see a "view only" notice; picking a circle you don\'t lead explains that you can\'t move the project there.',
+      'Board moves and settings saves that the database rejects no longer fail silently: the card snaps back and a pop-up says the change didn\'t save.',
+      'New Circles tab in Operations (/ops?tab=circles): every circle with its leads and projects, which circles you lead, and which you\'re involved in.',
+      'M01 travel match scoring now reads startDate/endDate, so the overlapping-dates (10 pts) and within-30-days (6 pts) tiers fire.',
+    ],
+  },
+  {
     version: 'v3.54',
     date: '2026-05-25',
     title: 'M01 Network activity feed on Dashboard; activity feed labels and reordering',

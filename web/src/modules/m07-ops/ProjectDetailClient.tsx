@@ -9,6 +9,8 @@ import type { Project, Deliverable, ProjectUpdate, CollaborationAgreement, MyPro
 import { PILLARS, PILLAR_META, isPillar, type Pillar } from '@/core/lib/pillars'
 import { isActiveProject, isOpenForProposals, PROJECT_STATUS_META, PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
 import { CalendarPicker } from './CalendarPicker'
+import { PermissionNoticeModal } from './PermissionNoticeModal'
+import { circleChangeBlock, projectEditBlock, type CircleDirectory, type PermissionNotice } from '@/core/lib/ops-permissions'
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ const PROPOSAL_STATUS_INFO: Record<string, { label: string; color: string; note:
 
 export default function ProjectDetailClient({
   project, updates, pendingProposals: initialPendingProposals,
-  deliverables: initialDeliverables, myProposal: initialMyProposal, userId, userRole, isAdmin, isProjectCreator,
+  deliverables: initialDeliverables, myProposal: initialMyProposal, userId, userRole, leadCircles, circleDirectory, isAdmin, isProjectCreator,
   projectSubscribers: initialProjectSubscribers, isProjectSubscribed: initialIsProjectSubscribed,
   deliverableSubscribers: initialDeliverableSubscribers,
   leadProfile, creatorProfile,
@@ -123,6 +125,8 @@ export default function ProjectDetailClient({
   myProposal: MyProposal | null
   userId: string | null
   userRole: string
+  leadCircles: string[]
+  circleDirectory: CircleDirectory
   isAdmin: boolean
   isProjectCreator: boolean
   projectSubscribers: SubscriberProfile[]
@@ -136,6 +140,9 @@ export default function ProjectDetailClient({
   const s = PROJECT_STATUS_META[project.status] ?? PROJECT_STATUS_META.backlog
 
   const canManage = isAdmin || isProjectCreator
+  // Settings write to `projects`, whose RLS is stricter than canManage
+  const settingsBlock = projectEditBlock(project, userId, userRole, leadCircles)
+  const [notice, setNotice] = useState<PermissionNotice | null>(null)
   const canPropose = !canManage && project.open_for_collaborators && isOpenForProposals(project.status)
 
   // ── Kanban state ─────────────────────────────────────────────────────────
@@ -406,14 +413,26 @@ export default function ProjectDetailClient({
   }
 
   async function saveProjectSettings() {
+    if (settingsBlock) { setNotice(settingsBlock); return }
+    const circleBlock = circleChangeBlock(editCircle, userRole, leadCircles)
+    if (circleBlock) { setNotice(circleBlock); return }
     setSavingSettings(true)
-    await supabase.from('projects').update({
+    // RLS rejects silently (0 rows, no error), so ask for the row back to tell
+    const { data, error } = await supabase.from('projects').update({
       status: editStatus,
       open_for_collaborators: editOpenCollab,
       circle: editCircle || null,
       deadline: editDeadline || null,
-    }).eq('id', project.id)
+    }).eq('id', project.id).select('id')
     setSavingSettings(false)
+    if (error || !data?.length) {
+      setNotice({
+        title: "Settings didn't save",
+        message: error?.message ?? 'The database didn’t allow this change for your account.',
+        circle: isPillar(project.circle) ? project.circle : null,
+      })
+      return
+    }
     router.refresh()
   }
 
@@ -891,6 +910,15 @@ export default function ProjectDetailClient({
             <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 'var(--radius)', padding: '16px' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 12 }}>Project settings</div>
 
+              {settingsBlock && (
+                <div style={{ fontSize: 12, lineHeight: 1.5, color: '#b45309', background: 'color-mix(in srgb, #f59e0b 10%, var(--surface))', border: '1px solid #f59e0b', borderRadius: 8, padding: '8px 10px', marginBottom: 12 }}>
+                  🔒 You can view these settings but not change them.{' '}
+                  <button type="button" onClick={() => setNotice(settingsBlock)} style={{ background: 'none', border: 'none', padding: 0, color: '#b45309', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontSize: 12 }}>
+                    Why?
+                  </button>
+                </div>
+              )}
+
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6 }}>Status</label>
                 <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ ...inputStyle, padding: '8px 12px', fontSize: 13 }}>
@@ -918,7 +946,12 @@ export default function ProjectDetailClient({
                       <button
                         key={p}
                         type="button"
-                        onClick={() => setEditCircle(active ? '' : p)}
+                        onClick={() => {
+                          const next = active ? '' : p
+                          const block = settingsBlock ?? circleChangeBlock(next, userRole, leadCircles)
+                          if (block) setNotice(block)
+                          else setEditCircle(next)
+                        }}
                         style={{
                           fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 20,
                           background: active ? meta.color : 'var(--surface)',
@@ -941,8 +974,8 @@ export default function ProjectDetailClient({
 
               <button
                 onClick={saveProjectSettings}
-                disabled={savingSettings}
-                style={{ background: '#4338ca', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius)', border: 'none', cursor: savingSettings ? 'not-allowed' : 'pointer', opacity: savingSettings ? 0.65 : 1 }}
+                disabled={savingSettings || !!settingsBlock}
+                style={{ background: '#4338ca', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius)', border: 'none', cursor: savingSettings || settingsBlock ? 'not-allowed' : 'pointer', opacity: savingSettings || settingsBlock ? 0.65 : 1 }}
               >
                 {savingSettings ? 'Saving…' : 'Save settings'}
               </button>
@@ -951,6 +984,8 @@ export default function ProjectDetailClient({
         )}
 
       </div>
+
+      <PermissionNoticeModal notice={notice} directory={circleDirectory} onClose={() => setNotice(null)} />
 
       {/* ── Subtask edit modal ─────────────────────────────────────────────────── */}
       {editModal && (
