@@ -2,6 +2,41 @@
 
 ---
 
+## 2026-10-29 — Fixed M01 travel match scoring (date tiers never fired)
+
+`match-score.ts` read `from_date` / `to_date` from `user_bio.places_traveling`, but the profile editor (and both profile views) write `startDate` / `endDate`. Every travel match fell through to the flat 4-pt "same destination" tier; the 10-pt (overlapping dates) and 6-pt (within 30 days) tiers never fired. The scorer now reads `startDate` / `endDate`. Verified all three tiers with sample plans. No DB change.
+
+---
+
+## 2026-10-29 — DB only (no version bump) — Fixed `projects` RLS: circle_leads couldn't create or move projects
+
+Creating a project from `/ops/new` failed with `new row violates row-level security policy for table "projects"` for any `circle_lead` account. The `projects` RLS policies predated both the `circle_lead` role and the pending/backlog/in_progress/review/done status refactor, so a circle_lead matched neither INSERT policy:
+
+| policy | why it rejected the insert |
+|---|---|
+| `admin can insert projects` | role list was `admin, project_lead` only — no `circle_lead` |
+| `joining members can propose projects` | required `status = 'pending'` |
+
+`NewProjectClient.tsx:41` sends `status: isOpsAdmin ? 'backlog' : 'pending'`, and `isOpsAdmin()` includes `circle_lead` — so a circle_lead inserts `'backlog'`, which is excluded by the first policy and the wrong status for the second. Admins were unaffected, which is why it went unnoticed.
+
+### Migration `projects_rls_align_with_role_model`
+
+Replaced both INSERT policies and added one UPDATE policy:
+
+- **`ops leads can create projects`** (INSERT) — `admin` / `circle_lead` / `project_lead`, any status, requires `created_by = auth.uid()` (the old admin policy didn't check this).
+- **`members can propose projects`** (INSERT) — `joining` / `member` / `advisor`, `status = 'pending'` only, `created_by = auth.uid()`.
+- **`circle leads can update projects in their circles`** (UPDATE) — new. The UPDATE policy had the same stale role list, so dragging a card on the Kanban would also have failed for a circle_lead. Mirrors the `circle_lead` branch of `canMoveProject()` in `OpsClient.tsx:33` (`circle = any(up.lead_circles)`).
+
+No application code changed and no deploy was needed.
+
+### Known gaps left open (deliberately, pending a decision)
+
+- **`project_lead` can UPDATE any project at the DB level** (`admin can update projects` policy), while the app only lets them move projects where they are `created_by` or `lead_user_id`. Tightening it to match is a real behavior change, so it was left as-is.
+- **`projects.status` still defaults to `'active'`** — a value that no longer exists in the five-column Kanban model. Harmless today because every insert path supplies a status explicitly, but it's a landmine for any future insert that doesn't.
+- **No DELETE policy on `projects`** — nobody, admins included, can delete a project.
+
+---
+
 ## 2026-05-23 — v3.45 — M01 Members module restyled to match the dashboard + DESIGN-SYSTEM.md
 
 The /network/* pages were a mix of inline styles, shadcn `<Card>`, and Tailwind utility classes — visually inconsistent with the M00 /dashboard page which had a clear, sleek Google-style aesthetic. Brought all M01 pages onto the dashboard's visual language and captured the design rules in a new repo-root doc so future contributors can stay consistent.

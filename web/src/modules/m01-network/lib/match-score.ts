@@ -7,8 +7,8 @@ export type Bio = {
   goals?: string | null
   places_traveling?: Array<{
     location?: string | null
-    from_date?: string | null
-    to_date?: string | null
+    startDate?: string | null
+    endDate?: string | null
     notes?: string | null
   }> | null
   personality_details?: {
@@ -172,10 +172,10 @@ export function computeMatch(mine: Bio, theirs: Bio): MatchResult {
       for (const tt of theirTravel) {
         if (!fuzzyMatch(mt.location, tt.location)) continue
         const dest = (tt.location ?? '').trim()
-        const mStart = mt.from_date ? new Date(mt.from_date) : null
-        const mEnd = mt.to_date ? new Date(mt.to_date) : null
-        const tStart = tt.from_date ? new Date(tt.from_date) : null
-        const tEnd = tt.to_date ? new Date(tt.to_date) : null
+        const mStart = mt.startDate ? new Date(mt.startDate) : null
+        const mEnd = mt.endDate ? new Date(mt.endDate) : null
+        const tStart = tt.startDate ? new Date(tt.startDate) : null
+        const tEnd = tt.endDate ? new Date(tt.endDate) : null
         if (mStart && mEnd && tStart && tEnd && !isNaN(+mStart) && !isNaN(+mEnd) && !isNaN(+tStart) && !isNaN(+tEnd)) {
           const overlaps = mStart <= tEnd && tStart <= mEnd
           if (overlaps) {

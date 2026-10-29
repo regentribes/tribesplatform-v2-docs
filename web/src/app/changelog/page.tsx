@@ -2,6 +2,62 @@ import Link from 'next/link'
 
 const ENTRIES = [
   {
+    version: 'v3.54',
+    date: '2026-05-25',
+    title: 'M01 Network activity feed on Dashboard; activity feed labels and reordering',
+    items: [
+      'Dashboard now shows a dedicated "M01 · Member activity" feed (joins, offers posted, seeks posted) directly below the projects activity feed in the right column.',
+      'Dashboard "Community activity" feed renamed to "Projects activity" — link updated to "View ops →".',
+      'Every item in the Projects activity feed now shows a colored module tag pill (M01, M07, M09) for at-a-glance source identification.',
+      '/network page activity feed section header renamed from "Member activity" to "M01 · Network activity".',
+      '/network page: "Your matches" section moved above the "M01 · Network activity" feed.',
+    ],
+  },
+  {
+    version: 'v3.53',
+    date: '2026-05-24',
+    title: 'Regen Hood 0 branding, open nav for guests, 4-layer governance, agreements redesign, footer, version badge',
+    items: [
+      // ── Identity & Branding ──
+      'Regen Hood 0 named throughout the product: home page hero, signup/login panels, and the blueprint module title now all reference "Regen Hood 0 — The Regen Tribe Regenerative Neighborhood".',
+      'Blueprint module main page title changed from "Your project at a glance" to "The Regen Tribe Regenerative Neighborhood — Regen Hood 0 — Plan".',
+      'Dashboard blueprint module card relabelled to "Our community & neighborhood plan at a glance".',
+
+      // ── Home page ──
+      'Home page hero now shows 8 clickable module pills — one per module (M00–M09) — each describing what that module does and smoothly scrolling (1600 ms ease-in-out) to its section on the page. Pill colors match the module accent. Hover lifts the pill and applies a module-tinted glow.',
+      '"Take the tour" button refactored to use the shared smoothScrollTo() helper, eliminating duplicated scroll logic.',
+      'Community purpose text on the home hero now comes directly from the blueprint purpose field in the database — editing the blueprint updates both the home page and the landing page automatically.',
+
+      // ── Open navigation for guests ──
+      'Non-logged-in users can now navigate to and view every module — M00 Dashboard, M01 Network, M04 Blueprint, M05 Join, M06 Agreements, M07 Operations, M08 Contributions, M09 Governance — without being redirected or locked out. Interactive actions (voting, proposing, submitting forms) remain gated.',
+      'AppSideNav: member module links are always active. A small "view only · Join to interact →" pill replaces the previous opaque lock block for guests.',
+      'Dashboard (/dashboard) no longer redirects guests to /home. Guests see community-wide stats (member count, active projects, open proposals, blueprint readiness) with "Join the community" and "Sign in" CTAs.',
+      'Blueprint (/blueprint) removed from middleware-protected routes — the page already handles no-user gracefully (admin-only edit controls are hidden, community blueprint data is shown read-only).',
+
+      // ── M09 Governance — 4-layer voting ──
+      'Governance renamed "Consent" layer to "Sociocracy (Circle Leads)" — only circle_lead role members vote at L1.',
+      'L2 Democracy: every full member (member+) gets one yes/no vote per proposal.',
+      'L3 Meritocracy: admin and advisor roles vote approve/reject. New "advisor" role added to the system (assignable via admin/users panel).',
+      'L4 AI facilitation: clicking a proposal triggers a background check via /api/governance/ai-check, which calls MiniMax M2.7 and compares the proposal against the community blueprint (purpose, vision, values). Returns a confidence score and reasoning blurb shown inline.',
+      'DB migration: proposal_votes gains a "layer" text column (default "sociocracy"); unique constraint changed from (proposal_id, user_id) to (proposal_id, user_id, layer) so each user can vote once per layer. Vote CHECK constraint updated to accept consent/concern/object/yes/no/approve/reject.',
+      'roles.ts: added isCircleLead(), isAdvisorOrAdmin(), and "advisor" to MEMBER_ROLES and JOINING_OR_ABOVE exports.',
+
+      // ── M06 Agreements ──
+      'Agreements page default view is now "My Agreements" — users land on a clean list of their own proposals, each showing project name, "Will contribute" / "Expects in return" panels, status badge, and submission date.',
+      '"Browse & Propose" is now a secondary tab — the original two-column project browser is accessible but no longer the landing view.',
+      'Empty state for My Agreements shows a friendly "No agreements yet — browse projects to make your first one" card with a direct button to the Browse tab.',
+
+      // ── Shell & Design ──
+      'AppTopBar: version badge (v3.53) is now a proper pill with border, background, and hover tint — replaces the previous dim 9px text that was easy to miss.',
+      'AppFooter: every page now has a footer at the bottom of the scrollable content area with the app name on the left and a "v3.53 · Changelog ↗" badge on the right.',
+
+      // ── Login / Signup ──
+      'Login page "New here?" card updated with Regen Hood 0 label and community description.',
+      'Register form header now opens with "Regen Hood 0" eyebrow, "Join the community" headline, and a bulleted list of what members can do (meet people, read the plan, join if aligned, contribute, decide together) before the form fields.',
+      'Right panel of the auth page updated: "A regenerative neighborhood, built together." with a green live dot and Regen Hood 0 label.',
+    ],
+  },
+  {
     version: 'v3.52',
     date: '2026-05-23',
     title: 'M05 Join — role roadmap visible to all users with live badge progress',
@@ -98,7 +154,7 @@ const ENTRIES = [
       'M01 match scoring now considers 7 dimensions instead of 4. New caps (still summing to 100): Shared skills 25 (was 30), Shared interests 15 (was 20), OCEAN 20 (was 25), MBTI 20 (was 25), Location proximity 5 (new), Travel overlap 10 (new), Aligned goals 5 (new).',
       'Skill and interest matching is now fuzzy — Levenshtein similarity ≥80% + substring containment. "Permacultur Desgn" now matches "Permaculture Design"; "Regenerative ag" matches "Regenerative agriculture". Free-text fields finally work the way users expect.',
       'Location proximity: same country + city = 5 pts, same country only = 3 pts. Pulled from user_profiles.city/country, which callers now merge into the bio object before scoring.',
-      'Travel overlap with date awareness: same destination + overlapping dates = 10 pts (reason "✈️ Both in Bali at the same time (Jun)"); within 30 days = 6 pts; same destination only = 4 pts. Uses user_bio.places_traveling JSONB with from_date/to_date.',
+      'Travel overlap with date awareness: same destination + overlapping dates = 10 pts (reason "✈️ Both in Bali at the same time (Jun)"); within 30 days = 6 pts; same destination only = 4 pts. Uses user_bio.places_traveling JSONB with startDate/endDate.',
       'Goal-keyword overlap on user_bio.goals across 6 regenerative signal words (community / regenerative / sustainable / permaculture / nature / spiritual) — up to 5 pts.',
       'Richer match reasons consistent with existing UI tone: ✨ shared skills, 💚 shared interests, 🧠 personality, 🎯 MBTI / goals, 📍 location, ✈️ travel.',
       'Removed /api/claude/route.ts leftover file — was already replaced by /api/scan in v3.22. Fixed stale ARCHITECTURE §8 reference.',
