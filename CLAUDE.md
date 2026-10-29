@@ -52,7 +52,7 @@ New members join **by invitation only** — someone already in the community sha
 ## Repository structure (the part that matters)
 
 ```
-tribesplatform-v2/
+myconet/
 ├── web/                              ← The live Next.js app — work here
 │   ├── src/
 │   │   ├── app/                      ← Thin route entry points (re-exports from modules)

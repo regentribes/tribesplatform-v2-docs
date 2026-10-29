@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { computeMatch } from '@/modules/m01-network/lib/match-score'
 import UserProfileClient from './UserProfileClient'
 import NetworkSidebar from '@/modules/m01-network/NetworkSidebar'
-import NetworkRightPanel from '@/modules/m01-network/NetworkRightPanel'
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
@@ -12,12 +11,10 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
 
   // Profile being viewed + viewer's own data (for sidebar/right panel) fetched in parallel
-  const [profileRes, viewerProfileRes, viewerBioRes, viewerOffersRes, viewerRequestsRes] = await Promise.all([
+  const [profileRes, viewerProfileRes, viewerBioRes] = await Promise.all([
     supabase.from('user_profiles').select('*').eq('username', username).maybeSingle(),
     user ? supabase.from('user_profiles').select('username, avatar_url, first_name, headline, city, country').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
     user ? supabase.from('user_bio').select('values_principles, skills, interests, goals, places_traveling, personality_details').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-    user ? supabase.from('user_offers').select('id').eq('user_id', user.id) : Promise.resolve({ data: null }),
-    user ? supabase.from('user_requests').select('id').eq('user_id', user.id) : Promise.resolve({ data: null }),
   ])
 
   const profile = profileRes.data
@@ -42,26 +39,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     ? computeMatch(viewerBioWithLoc as any, subjectBioWithLoc as any)
     : null
 
-  // Build sidebar + right panel data from the viewer's own profile
   const vp = viewerProfileRes.data
-  const vb = viewerBioRes.data
-  const vpd = vb?.personality_details as any
   const sidebarUser = vp ? { username: vp.username, first_name: vp.first_name, avatar_url: vp.avatar_url } : null
-
-  let rightPanelData = null
-  if (user && vp) {
-    const steps = [
-      { label: 'Name',        complete: !!(vp.first_name) },
-      { label: 'Headline',    complete: !!(vp.headline) },
-      { label: 'Values',      complete: !!(vb?.values_principles) },
-      { label: 'Personality', complete: !!(vpd?.myersBriggs) },
-      { label: 'Skills',      complete: (vb?.skills?.length ?? 0) > 0 },
-      { label: 'Goals',       complete: !!(vb?.goals) },
-      { label: 'Offers',      complete: (viewerOffersRes.data?.length ?? 0) > 0 },
-    ]
-    const completed = steps.filter(s => s.complete).length
-    rightPanelData = { steps, completed, completeness: Math.round((completed / steps.length) * 100) }
-  }
 
   return (
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 52px)', alignItems: 'flex-start' }}>
@@ -76,7 +55,6 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           match={match}
         />
       </main>
-      <NetworkRightPanel data={rightPanelData} />
     </div>
   )
 }

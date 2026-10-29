@@ -1151,8 +1151,31 @@ function DashboardView({ values, onJump, onPrint }: {
   return (
     <div>
       <Crumb items={['Project', 'Dashboard']} />
-      <h1 className="step-title">Your project at a glance</h1>
+      <h1 className="step-title">The Regen Tribe Regenerative Neighborhood — Regen Hood 0 — Plan</h1>
       <p className="step-lede">A live diagnostic across pillars, phases, and frameworks.</p>
+
+      {/* Land & Scale stat boxes */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+        {[
+          { icon: '🏡', label: 'Homes planned', value: String(values.planned_homes ?? '') || null },
+          { icon: '🌍', label: 'Land size',     value: String(values.land_size ?? '') || null },
+          { icon: '📍', label: 'Country',       value: String(values.project_country ?? '') || null },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: 'var(--surface)', border: '1px solid var(--rule)',
+            borderRadius: 12, padding: '20px 22px',
+            display: 'flex', flexDirection: 'column' as const, gap: 8,
+          }}>
+            <span style={{ fontSize: 28 }}>{s.icon}</span>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--ink-4)' }}>
+              {s.label}
+            </div>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
+              {s.value ?? <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--ink-4)', fontFamily: 'inherit' }}>Not set — edit blueprint</span>}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className="metric-grid">
         <div className="metric">

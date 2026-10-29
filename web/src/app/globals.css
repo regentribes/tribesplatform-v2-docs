@@ -396,6 +396,20 @@ a { color: inherit; text-decoration: none; }
   .home-split { gap: 28px !important; }
   .home-clubhouse-section { padding-left: 16px !important; padding-right: 16px !important; }
 
+  /* Module pills → single scrollable row on mobile */
+  .home-pills {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+    margin-left: -16px !important;
+    margin-right: -16px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .home-pills::-webkit-scrollbar { display: none; }
+
   /* Joining reward banner min-width override */
   .joining-banner-text { min-width: 0 !important; }
 
@@ -441,4 +455,33 @@ a:has(.dash-card):hover .dash-card {
 a:has(.dash-stat-card--link):hover .dash-stat-card--link {
   box-shadow: 0 4px 14px rgba(0,0,0,.10);
   transform: translateY(-1px);
+}
+
+/* ─── Auth page ──────────────────────────────────────────────────── */
+.auth-page-grid { grid-template-columns: 1fr 1fr; }
+
+.auth-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+}
+.auth-logo-wrap  { margin-bottom: 40px; }
+.auth-reg-bullets { display: flex; flex-direction: column; gap: 6px; margin: 0 0 22px; padding: 0; list-style: none; font-size: 13px; color: var(--ink-3); }
+.activity-row { transition: background 120ms; }
+.activity-row:hover { background: var(--bg-2) !important; }
+
+@media (max-width: 768px) {
+  .auth-page-grid { grid-template-columns: 1fr; }
+  .auth-right-panel { display: none !important; }
+
+  .auth-form-panel {
+    align-items: flex-start;   /* don't vertically centre — tall forms scroll naturally */
+    padding: 28px 20px 48px;
+  }
+  .auth-logo-wrap { margin-bottom: 24px; }
+
+  /* Collapse the bullet list into a single compact line on mobile */
+  .auth-reg-bullets { display: none; }
+  .auth-reg-tagline { display: block !important; } /* shown only on mobile */
 }

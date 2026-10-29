@@ -182,10 +182,19 @@ export default function AppTopBar({ onMobileNavToggle, mobileNavOpen }: {
               MyCommunityNetwork
             </span>
           </div>
-          <Link href="/changelog" style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '0.06em', textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink-2)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-4)')}>
-            {VERSION}
+          <Link href="/changelog" style={{ textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.querySelector('span')!.style.background = 'color-mix(in srgb, var(--accent-color) 18%, var(--bg-2))')}
+            onMouseLeave={e => (e.currentTarget.querySelector('span')!.style.background = 'var(--bg-2)')}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700,
+              color: 'var(--ink-3)', letterSpacing: '0.04em',
+              background: 'var(--bg-2)', border: '1px solid var(--rule)',
+              borderRadius: 5, padding: '1px 6px',
+              transition: 'background 120ms',
+            }}>
+              {VERSION}
+            </span>
           </Link>
         </div>
       </Link>

@@ -197,6 +197,7 @@ export default function AgreementsClient({
 
   const [myAgreements, setMyAgreements] = useState<Agreement[]>(initialAgreements)
   const [selectedId, setSelectedId] = useState<string | null>(projects[0]?.id ?? null)
+  const [view, setView] = useState<'mine' | 'browse'>('mine')
   const [filter, setFilter] = useState<'open' | 'mine' | 'all'>('open')
   const [workDescription, setWorkDescription] = useState('')
   const [expectedReward, setExpectedReward] = useState('')
@@ -204,8 +205,6 @@ export default function AgreementsClient({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [showMyAgreements, setShowMyAgreements] = useState(false)
-
   const [showNewProject, setShowNewProject] = useState(false)
 
   const isExplorer = userRole === 'explorer'
@@ -300,214 +299,129 @@ export default function AgreementsClient({
     <div style={{ padding: '26px 32px 60px' }}>
 
       {/* Page head */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 28, flexWrap: 'wrap' as const }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 24, flexWrap: 'wrap' as const }}>
         <div>
-          <div
-            style={{
-              display: 'inline-block',
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase' as const,
-              color: 'var(--m6)',
-              background: 'color-mix(in srgb, var(--m6) 10%, transparent)',
-              padding: '3px 10px',
-              borderRadius: 20,
-              marginBottom: 12,
-            }}
-          >
+          <div style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--m6)', background: 'color-mix(in srgb, var(--m6) 10%, transparent)', padding: '3px 10px', borderRadius: 20, marginBottom: 12 }}>
             Module 06 · Agreements
           </div>
-          <h1
-            style={{
-              fontFamily: 'var(--display)',
-              fontSize: 28,
-              color: 'var(--ink)',
-              lineHeight: 1.15,
-              marginBottom: 8,
-            }}
-          >
-            Make an agreement
+          <h1 style={{ fontFamily: 'var(--display)', fontSize: 28, color: 'var(--ink)', lineHeight: 1.15, marginBottom: 8 }}>
+            Agreements
           </h1>
           <p style={{ fontSize: 14, color: 'var(--ink-3)', maxWidth: 520, lineHeight: 1.55 }}>
-            Browse open projects and propose exactly what you'll contribute, exactly what you expect in return.
+            Propose exactly what you'll contribute to a project, and exactly what you expect in return.
           </p>
         </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' as const }}>
-          <button
-            onClick={() => setShowMyAgreements(v => !v)}
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 18px',
-              borderRadius: 8,
-              border: '1px solid var(--rule)',
-              background: showMyAgreements ? 'var(--bg-2)' : 'var(--surface)',
-              color: 'var(--ink-2)',
-              cursor: 'pointer',
-              transition: 'background 120ms',
-            }}
-          >
-            My agreements ({myAgreements.length})
-          </button>
-          <button
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 18px',
-              borderRadius: 8,
-              border: 'none',
-              background: 'var(--m6)',
-              color: '#fff',
-              cursor: 'pointer',
-            }}
-            onClick={() => setShowNewProject(true)}
-          >
-            + Propose new project
-          </button>
-        </div>
+        <button
+          style={{ fontSize: 13, fontWeight: 600, padding: '8px 18px', borderRadius: 8, border: 'none', background: 'var(--m6)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}
+          onClick={() => setShowNewProject(true)}
+        >
+          + Propose new project
+        </button>
       </div>
 
-      {/* My agreements panel */}
-      {showMyAgreements && myAgreements.length > 0 && (
-        <div
-          style={{
-            background: 'var(--bg-2)',
-            border: '1px solid var(--rule)',
-            borderRadius: 10,
-            padding: '16px 20px',
-            marginBottom: 24,
-          }}
-        >
-          <div
+      {/* Tab row */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--rule)', paddingBottom: 0 }}>
+        {([['mine', 'My Agreements'], ['browse', 'Browse & Propose']] as const).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
             style={{
-              fontFamily: 'var(--mono)',
-              fontSize: 9.5,
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase' as const,
-              color: 'var(--ink-4)',
-              marginBottom: 12,
+              fontSize: 13, fontWeight: view === v ? 700 : 500,
+              color: view === v ? 'var(--m6)' : 'var(--ink-3)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '8px 16px', marginBottom: -1,
+              borderBottom: view === v ? '2px solid var(--m6)' : '2px solid transparent',
+              transition: 'color 120ms, border-color 120ms',
             }}
           >
-            My proposals
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
-            {myAgreements.map(a => {
-              const proj = projects.find(p => p.id === a.project_id)
-              return (
-                <div
-                  key={a.id}
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--rule)',
-                    borderRadius: 8,
-                    padding: '10px 14px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>
-                      {proj?.title ?? 'Project'}
+            {label}{v === 'mine' && myAgreements.length > 0 ? ` (${myAgreements.length})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* ── MY AGREEMENTS VIEW ─────────────────────────────────── */}
+      {view === 'mine' && (
+        <div>
+          {myAgreements.length === 0 ? (
+            <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 12, padding: '48px 28px', textAlign: 'center' as const, maxWidth: 480 }}>
+              <div style={{ fontSize: 32, marginBottom: 14 }}>🤝</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>No agreements yet</div>
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginBottom: 20 }}>
+                Browse open projects and propose what you'll contribute and what you expect in return.
+              </p>
+              <button
+                onClick={() => setView('browse')}
+                style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--m6)', border: 'none', borderRadius: 8, padding: '9px 20px', cursor: 'pointer' }}
+              >
+                Browse projects →
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12, maxWidth: 700 }}>
+              {myAgreements.map(a => {
+                const proj = projects.find(p => p.id === a.project_id)
+                const STATUS_COLOR: Record<string, string> = {
+                  accepted: '#15803d', active: '#3b82f6', completed: '#94a3b8', rejected: '#ef4444', pending: '#f59e0b', draft: '#94a3b8',
+                }
+                const color = STATUS_COLOR[a.status] ?? '#f59e0b'
+                return (
+                  <div key={a.id} style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{proj?.title ?? 'Project'}</div>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color, background: `${color}18`, padding: '3px 10px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap' as const }}>
+                        {a.status}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-                      {a.work_description}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ background: 'var(--bg-2)', borderRadius: 8, padding: '10px 12px' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--ink-4)', marginBottom: 4 }}>Will contribute</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>{a.work_description}</div>
+                      </div>
+                      <div style={{ background: 'var(--bg-2)', borderRadius: 8, padding: '10px 12px' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--ink-4)', marginBottom: 4 }}>Expects in return</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>{a.expected_reward}</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>
+                      Submitted {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   </div>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase' as const,
-                      color:
-                        a.status === 'accepted' || a.status === 'active'
-                          ? '#15803d'
-                          : a.status === 'rejected'
-                          ? '#ef4444'
-                          : a.status === 'completed'
-                          ? '#94a3b8'
-                          : '#f59e0b',
-                      background:
-                        a.status === 'accepted' || a.status === 'active'
-                          ? '#15803d14'
-                          : a.status === 'rejected'
-                          ? '#ef444414'
-                          : a.status === 'completed'
-                          ? '#94a3b814'
-                          : '#f59e0b14',
-                      padding: '3px 9px',
-                      borderRadius: 20,
-                      flexShrink: 0,
-                      whiteSpace: 'nowrap' as const,
-                    }}
-                  >
-                    {a.status}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+              <button
+                onClick={() => setView('browse')}
+                style={{ alignSelf: 'flex-start' as const, fontSize: 13, fontWeight: 600, color: 'var(--m6)', background: 'none', border: '1px solid color-mix(in srgb, var(--m6) 35%, var(--rule))', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', marginTop: 4 }}
+              >
+                + Propose on another project
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Two-column grid */}
+      {/* ── BROWSE & PROPOSE VIEW ──────────────────────────────── */}
+      {view === 'browse' && (
       <div
         className="agreements-split"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1.05fr',
-          gap: 18,
-          alignItems: 'start',
-        }}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 18, alignItems: 'start' }}
       >
         {/* LEFT — project list */}
         <div>
           {/* Filter chips */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' as const }}>
-            <FilterChip
-              label={`Open · ${openProjects.length}`}
-              active={filter === 'open'}
-              onClick={() => setFilter('open')}
-            />
-            <FilterChip
-              label="Mine"
-              active={filter === 'mine'}
-              onClick={() => setFilter('mine')}
-            />
-            <FilterChip
-              label="All projects"
-              active={filter === 'all'}
-              onClick={() => setFilter('all')}
-            />
+            <FilterChip label={`Open · ${openProjects.length}`} active={filter === 'open'} onClick={() => setFilter('open')} />
+            <FilterChip label="Mine" active={filter === 'mine'} onClick={() => setFilter('mine')} />
+            <FilterChip label="All projects" active={filter === 'all'} onClick={() => setFilter('all')} />
             <div style={{ flex: 1 }} />
-            <FilterChip
-              label="↕ Soonest deadline"
-              dashed
-            />
+            <FilterChip label="↕ Soonest deadline" dashed />
           </div>
 
           {/* Project cards */}
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
             {filteredProjects.length === 0 ? (
-              <div
-                style={{
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--rule)',
-                  borderRadius: 10,
-                  padding: '32px 20px',
-                  textAlign: 'center' as const,
-                }}
-              >
+              <div style={{ background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 10, padding: '32px 20px', textAlign: 'center' as const }}>
                 <p style={{ fontSize: 13, color: 'var(--ink-4)', margin: 0 }}>
-                  {filter === 'mine'
-                    ? "You haven't proposed on any projects yet."
-                    : 'No projects open for collaboration right now.'}
+                  {filter === 'mine' ? "You haven't proposed on any projects yet." : 'No projects open for collaboration right now.'}
                 </p>
               </div>
             ) : (
@@ -818,6 +732,7 @@ export default function AgreementsClient({
           )}
         </div>
       </div>
+      )}
 
       {showNewProject && userId && (
         <NewProjectModal userId={userId} onClose={() => setShowNewProject(false)} />

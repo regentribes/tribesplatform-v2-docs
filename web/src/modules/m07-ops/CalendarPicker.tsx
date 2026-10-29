@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const MONTH_NAMES = [
@@ -30,16 +30,34 @@ export function CalendarPicker({
   const [open, setOpen] = useState(false)
   const [viewYear, setViewYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear())
   const [viewMonth, setViewMonth] = useState(selectedDate?.getMonth() ?? today.getMonth())
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  const updatePos = useCallback(() => {
+    if (!triggerRef.current) return
+    const r = triggerRef.current.getBoundingClientRect()
+    setDropdownPos(align === 'right'
+      ? { top: r.bottom + 6, right: window.innerWidth - r.right }
+      : { top: r.bottom + 6, left: r.left }
+    )
+  }, [align])
 
   useEffect(() => {
     if (!open) return
+    updatePos()
     const handler = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+    window.addEventListener('scroll', updatePos, true)
+    window.addEventListener('resize', updatePos)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', updatePos, true)
+      window.removeEventListener('resize', updatePos)
+    }
+  }, [open, updatePos])
 
   // Sync view to value when it changes externally
   useEffect(() => {
@@ -73,9 +91,10 @@ export function CalendarPicker({
     : null
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={ref} style={{ display: 'inline-block' }}>
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         style={{
@@ -96,13 +115,13 @@ export function CalendarPicker({
         {displayLabel ?? placeholder}
       </button>
 
-      {/* Dropdown calendar */}
-      {open && (
+      {/* Dropdown calendar — fixed so no ancestor overflow:hidden can clip it */}
+      {open && dropdownPos && (
         <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 6px)',
-          ...(align === 'right' ? { right: 0 } : { left: 0 }),
-          zIndex: 300,
+          position: 'fixed',
+          top: dropdownPos.top,
+          ...(dropdownPos.right !== undefined ? { right: dropdownPos.right } : { left: dropdownPos.left }),
+          zIndex: 10000,
           background: 'var(--surface)',
           border: '1px solid var(--rule)',
           borderRadius: 12,

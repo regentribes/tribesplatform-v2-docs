@@ -1,6 +1,5 @@
 import { createClient } from '@/core/lib/supabase/server'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { computeOverallReadiness, computeGatesPassed, computePhaseProgress, type Values } from '@/modules/m04-blueprint/lib/blueprint-compute'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -32,41 +31,59 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/home')
-
-  const [
-    profileRes, blueprintRes, memberCountRes, projectsRes,
-    recentMembersRes, recentProjectsRes, applicationRes,
-    openProposalsRes, recentProposalsRes,
-  ] = await Promise.all([
-    supabase.from('user_profiles').select('*').eq('id', user.id).single(),
+  const publicFetches = await Promise.all([
     supabase.from('blueprints').select('answers, flags, updated_at').eq('is_community', true).maybeSingle(),
     supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
     supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('user_profiles')
       .select('id, first_name, last_name, username, avatar_url, created_at')
-      .neq('id', user.id)
       .order('created_at', { ascending: false })
       .limit(3),
     supabase.from('projects')
       .select('id, title, created_by, created_at')
       .order('created_at', { ascending: false })
       .limit(2),
-    supabase.from('applications').select('status, created_at').eq('user_id', user.id).maybeSingle(),
     supabase.from('proposals').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     supabase.from('proposals')
       .select('id, title, decision_mode, created_at')
       .order('created_at', { ascending: false })
       .limit(2),
+    supabase.from('project_updates')
+      .select('id, content, created_at, project_id, projects(id, title), user_profiles(first_name, username)')
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase.from('deliverables')
+      .select('id, title, status, created_at, project_id, projects(id, title)')
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase.from('user_offers')
+      .select('id, title, created_at, user_profiles(first_name, last_name, username)')
+      .order('created_at', { ascending: false })
+      .limit(4),
+    supabase.from('user_requests')
+      .select('id, title, created_at, user_profiles(first_name, last_name, username)')
+      .order('created_at', { ascending: false })
+      .limit(4),
   ])
 
-  const profile = profileRes.data
+  const [blueprintRes, memberCountRes, projectsRes, recentMembersRes, recentProjectsRes, openProposalsRes, recentProposalsRes, opsUpdatesRes, opsTasksRes, recentOffersRes, recentSeeksRes] = publicFetches
+
+  let profile: any = null
+  let application: any = null
+  if (user) {
+    const [profileRes, applicationRes] = await Promise.all([
+      supabase.from('user_profiles').select('*').eq('id', user.id).single(),
+      supabase.from('applications').select('status, created_at').eq('user_id', user.id).maybeSingle(),
+    ])
+    profile = profileRes.data
+    application = applicationRes.data
+  }
+
   const blueprint = blueprintRes.data as { answers: unknown; flags: unknown; updated_at: string } | null
   const memberCount = memberCountRes.count ?? 0
   const activeProjects = projectsRes.count ?? 0
-  const recentMembers = recentMembersRes.data ?? []
+  const recentMembers = (recentMembersRes.data ?? []).filter((m: any) => m.id !== user?.id)
   const recentProjects = recentProjectsRes.data ?? []
-  const application = applicationRes.data
   const openProposals = openProposalsRes.count ?? 0
   const recentProposals = recentProposalsRes.data ?? []
 
@@ -93,7 +110,7 @@ export default async function DashboardPage() {
       color: 'var(--m1)', href: '/network', locked: false,
     },
     {
-      num: '04', name: 'Blueprint',
+      num: '04', name: 'Our community & neighborhood plan at a glance',
       desc: overall !== null
         ? `${overall.toFixed(1)}/10 readiness · ${gatesPassed}/4 gates · ${currentPhase} phase`
         : 'Community blueprint not started',
@@ -131,23 +148,71 @@ export default async function DashboardPage() {
     },
   ]
 
-  type FeedItem = { who: string; act: string; when: string; color: string }
-  const feed: FeedItem[] = []
+  type FeedItem = { who: string; act: string; when: string; color: string; tag: string; href?: string; ts: number }
+  const rawFeed: FeedItem[] = []
+
   for (const m of recentMembers) {
     const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username || 'Member'
-    const ago = timeAgo(new Date(m.created_at))
-    feed.push({ who: name, act: 'joined the community', when: ago, color: 'var(--m5)' })
+    rawFeed.push({ who: name, act: 'joined the community', when: '', color: 'var(--m1)', tag: 'M01', ts: new Date(m.created_at).getTime() })
+  }
+  for (const o of (recentOffersRes.data ?? []) as any[]) {
+    const p = o.user_profiles as any
+    const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+    const title = (o.title as string).length > 50 ? (o.title as string).slice(0, 48) + '…' : o.title
+    rawFeed.push({ who: name, act: `posted an offer — "${title}"`, when: '', color: 'var(--m1)', tag: 'M01', href: p?.username ? `/u/${p.username}` : undefined, ts: new Date(o.created_at).getTime() })
+  }
+  for (const s of (recentSeeksRes.data ?? []) as any[]) {
+    const p = s.user_profiles as any
+    const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+    const title = (s.title as string).length > 50 ? (s.title as string).slice(0, 48) + '…' : s.title
+    rawFeed.push({ who: name, act: `is looking for — "${title}"`, when: '', color: 'var(--m1)', tag: 'M01', href: p?.username ? `/u/${p.username}` : undefined, ts: new Date(s.created_at).getTime() })
   }
   for (const p of recentProjects) {
-    const ago = timeAgo(new Date(p.created_at))
-    feed.push({ who: 'A member', act: `created project "${p.title}"`, when: ago, color: 'var(--m7)' })
+    rawFeed.push({ who: 'New project', act: `"${p.title}"`, when: '', color: 'var(--m7)', tag: 'M07', href: `/ops/${p.id}`, ts: new Date(p.created_at).getTime() })
   }
   for (const p of recentProposals) {
-    const ago = timeAgo(new Date(p.created_at))
-    feed.push({ who: 'Governance', act: `new proposal — "${p.title}"`, when: ago, color: 'var(--m9)' })
+    rawFeed.push({ who: 'New proposal', act: `"${p.title}"`, when: '', color: 'var(--m9)', tag: 'M09', href: '/governance', ts: new Date(p.created_at).getTime() })
+  }
+  for (const u of (opsUpdatesRes.data ?? []) as any[]) {
+    const author = u.user_profiles?.first_name ?? u.user_profiles?.username ?? 'Someone'
+    const proj = u.projects?.title ?? 'a project'
+    const body = (u.content as string).length > 60 ? (u.content as string).slice(0, 58) + '…' : u.content
+    rawFeed.push({ who: author, act: `on "${proj}" — ${body}`, when: '', color: 'var(--m7)', tag: 'M07', href: `/ops/${u.project_id}`, ts: new Date(u.created_at).getTime() })
+  }
+  for (const d of (opsTasksRes.data ?? []) as any[]) {
+    const proj = d.projects?.title ?? 'a project'
+    const task = (d.title as string).length > 50 ? (d.title as string).slice(0, 48) + '…' : d.title
+    rawFeed.push({ who: 'New task', act: `on "${proj}" — ${task}`, when: '', color: 'var(--m7)', tag: 'M07', href: `/ops/${d.project_id}`, ts: new Date(d.created_at).getTime() })
   }
 
-  const showNextStep = !atLeast(role, 'joining')
+  const feed = rawFeed
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 8)
+    .map(item => ({ ...item, when: timeAgo(new Date(item.ts)) }))
+
+  type MemberActivity = { id: string; who: string; act: string; href: string; ts: number }
+  const memberActivity: MemberActivity[] = [
+    ...(recentMembersRes.data ?? []).filter((m: any) => m.id !== user?.id).map((m: any) => {
+      const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username || 'Someone'
+      return { id: 'join-' + m.id, who: name, act: 'joined the community', href: `/u/${m.username}`, ts: new Date(m.created_at).getTime() }
+    }),
+    ...(recentOffersRes.data ?? []).map((o: any) => {
+      const p = o.user_profiles as any
+      const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+      const title = (o.title as string).length > 50 ? (o.title as string).slice(0, 48) + '…' : o.title
+      return { id: 'offer-' + o.id, who: name, act: `posted an offer — "${title}"`, href: `/u/${p?.username}`, ts: new Date(o.created_at).getTime() }
+    }),
+    ...(recentSeeksRes.data ?? []).map((s: any) => {
+      const p = s.user_profiles as any
+      const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+      const title = (s.title as string).length > 50 ? (s.title as string).slice(0, 48) + '…' : s.title
+      return { id: 'seek-' + s.id, who: name, act: `is looking for — "${title}"`, href: `/u/${p?.username}`, ts: new Date(s.created_at).getTime() }
+    }),
+  ]
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 10)
+
+  const showNextStep = !!user && !atLeast(role, 'joining')
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 28px 80px' }}>
@@ -156,28 +221,49 @@ export default async function DashboardPage() {
         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 8 }}>
           M00 · Dashboard
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
-              {greeting}, {displayName}.
-            </h1>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
-              You're {roleLabel === 'Explorer' ? 'an' : 'a'} <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{roleLabel}</span>
-              {' '}at <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{projectName}</span>
-              {' '}· {memberCount} member{memberCount !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
-            <Link href="/blueprint" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', background: 'var(--surface)' }}>
-              View blueprint
-            </Link>
-            {!atLeast(role, 'joining') && (
-              <Link href="/join" style={{ fontSize: 13, fontWeight: 700, color: '#fff', padding: '7px 16px', border: 'none', borderRadius: 8, textDecoration: 'none', background: 'var(--m5)' }}>
-                Begin joining →
+        {!user ? (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+                Community Dashboard
+              </h1>
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+                {memberCount} member{memberCount !== 1 ? 's' : ''} · {activeProjects} active project{activeProjects !== 1 ? 's' : ''} · {projectName}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+              <Link href="/auth/signup" style={{ fontSize: 13, fontWeight: 700, color: '#fff', padding: '7px 16px', border: 'none', borderRadius: 8, textDecoration: 'none', background: 'var(--m9)' }}>
+                Join the community →
               </Link>
-            )}
+              <Link href="/auth/login" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', background: 'var(--surface)' }}>
+                Sign in
+              </Link>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(20px, 3vw, 28px)', color: 'var(--ink)', lineHeight: 1.1, margin: '0 0 6px' }}>
+                {greeting}, {displayName}.
+              </h1>
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
+                You're {roleLabel === 'Explorer' ? 'an' : 'a'} <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{roleLabel}</span>
+                {' '}at <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{projectName}</span>
+                {' '}· {memberCount} member{memberCount !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+              <Link href="/blueprint" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', padding: '7px 14px', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', background: 'var(--surface)' }}>
+                View blueprint
+              </Link>
+              {!atLeast(role, 'joining') && (
+                <Link href="/join" style={{ fontSize: 13, fontWeight: 700, color: '#fff', padding: '7px 16px', border: 'none', borderRadius: 8, textDecoration: 'none', background: 'var(--m5)' }}>
+                  Begin joining →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 20 }}>
@@ -217,17 +303,53 @@ export default async function DashboardPage() {
 
           <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '16px 18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Activity</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>Last 7 days</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Projects activity</div>
+              <Link href="/ops" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--m7)', textDecoration: 'none', fontWeight: 600 }}>View ops →</Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {feed.length > 0 ? feed.slice(0, 5).map((a, i) => (
+              {feed.length > 0 ? feed.map((a, i) => (
                 <FeedRow key={i} {...a} />
               )) : (
                 <p style={{ fontSize: 12.5, color: 'var(--ink-4)', margin: 0 }}>No recent activity yet.</p>
               )}
             </div>
           </div>
+
+          {memberActivity.length > 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 10px' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  M01 · Member activity
+                </div>
+                <Link href="/network" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--m1)', textDecoration: 'none', fontWeight: 600 }}>View network →</Link>
+              </div>
+              <div style={{ borderTop: '1px solid var(--rule)' }}>
+                {memberActivity.map((item, i) => (
+                  <Link key={item.id} href={item.href} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+                      borderBottom: i < memberActivity.length - 1 ? '1px solid color-mix(in srgb, var(--rule) 60%, transparent)' : 'none',
+                    }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                        background: 'color-mix(in srgb, var(--m1) 15%, var(--surface))',
+                        display: 'grid', placeItems: 'center',
+                        fontSize: 9, fontWeight: 700, color: 'var(--m1)',
+                      }}>
+                        {item.who[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: 'var(--ink)' }}>{item.who}</strong>{' '}{item.act}
+                      </div>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>
+                        {timeAgo(new Date(item.ts))}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {showNextStep && (
             <div style={{
@@ -254,7 +376,7 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          {atLeast(role, 'joining') && (
+          {!!user && atLeast(role, 'joining') && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 18px' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
                 Welcome, {roleLabel}
@@ -267,6 +389,7 @@ export default async function DashboardPage() {
         </div>
 
       </div>
+
     </div>
   )
 }
@@ -328,25 +451,33 @@ function ModCard({ num, name, desc, color, href, locked, cta }: ModuleCard) {
   )
 }
 
-function FeedRow({ who, act, when, color }: { who: string; act: string; when: string; color: string }) {
+function FeedRow({ who, act, when, color, tag, href }: { who: string; act: string; when: string; color: string; tag: string; href?: string; ts?: number }) {
   const initials = who.split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+  const inner = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{
         width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-        background: color, display: 'grid', placeItems: 'center',
-        color: '#fff', fontSize: 9.5, fontWeight: 700,
+        background: `color-mix(in srgb, ${color} 18%, var(--surface))`,
+        display: 'grid', placeItems: 'center',
+        color, fontSize: 9.5, fontWeight: 700,
       }}>
         {initials}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
-          <strong style={{ color: 'var(--ink)' }}>{who}</strong>{' '}{act}
-        </div>
+      <span style={{
+        fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
+        color, background: `color-mix(in srgb, ${color} 12%, transparent)`,
+        padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+      }}>
+        {tag}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <strong style={{ color: 'var(--ink)' }}>{who}</strong>{' '}{act}
       </div>
-      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>{when}</span>
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0, marginLeft: 4 }}>{when}</span>
     </div>
   )
+  if (href) return <Link href={href} style={{ textDecoration: 'none' }}>{inner}</Link>
+  return inner
 }
 
 function timeAgo(date: Date): string {

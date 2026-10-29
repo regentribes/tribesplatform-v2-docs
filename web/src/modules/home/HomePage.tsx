@@ -42,6 +42,9 @@ export default async function HomePage() {
   const phaseProgress = bp ? computePhaseProgress(bpAnswers) : []
   const communityName = (bpAnswers.project_name as string) || 'Our Community'
   const communityPurpose = (bpAnswers.purpose as string) || null
+  const landSize = (bpAnswers.land_size as string) || null
+  const plannedHomes = (bpAnswers.planned_homes as string) || null
+  const projectCountry = (bpAnswers.project_country as string) || null
   const memberCount = memberCountRes.count ?? 0
   const activeProjectCount = activeProjectCountRes.count ?? 0
 
@@ -97,6 +100,9 @@ export default async function HomePage() {
       phaseProgress={phaseProgress}
       overall={overall}
       gatesPassed={gatesPassed}
+      landSize={landSize}
+      plannedHomes={plannedHomes}
+      projectCountry={projectCountry}
       memberCount={memberCount}
       members={(membersRes.data ?? []) as any[]}
       communityValues={(valuesRes.data ?? []) as any[]}

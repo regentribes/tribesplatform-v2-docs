@@ -8,7 +8,7 @@ export default async function AgreementFormPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  if (!user) redirect('/auth/signup')
 
   const { data: profile } = await supabase
     .from('user_profiles')

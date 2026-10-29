@@ -16,6 +16,9 @@ interface Props {
   phaseProgress: PhaseP[]
   overall: number | null
   gatesPassed: number | null
+  landSize: string | null
+  plannedHomes: string | null
+  projectCountry: string | null
   memberCount: number
   members: Member[]
   communityValues: Value[]
@@ -39,13 +42,60 @@ const CHECK_ICON = (
 )
 
 const GOV_LAYERS = [
-  { num: '01', name: 'Consent (Sociocracy)', mark: '☉', desc: 'Most everyday decisions. Move forward if there are no principled objections — not unanimous applause.' },
+  { num: '01', name: 'Sociocracy (Circle Leads)', mark: '☉', desc: 'Circle Leads decide. Move forward if there are no principled objections from any Circle Lead.' },
   { num: '02', name: 'Democracy (Majority)', mark: '☑', desc: 'Big shared choices that affect everyone. Open vote, simple majority, public results.' },
   { num: '03', name: 'Meritocracy (Domain expert)', mark: '△', desc: 'Technical calls go to the person with skin in the game — soil tests, money, contracts.' },
   { num: '04', name: 'AI-mediated facilitation', mark: '◇', desc: 'When things stall, the AI surfaces blockers, suggests reframes, and finds the next move.' },
 ]
 
 const PHASE_COLORS = ['#22c55e', '#ca8a04', '#3b82f6', '#8b5cf6']
+
+function smoothScrollTo(targetId: string) {
+  const el = document.getElementById(targetId)
+  const container = document.querySelector('main') as HTMLElement | null
+  if (!el || !container) return
+  const start = container.scrollTop
+  const target = start + el.getBoundingClientRect().top - container.getBoundingClientRect().top
+  const duration = 1600
+  const startTime = performance.now()
+  const ease = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+  const step = (now: number) => {
+    const t = Math.min((now - startTime) / duration, 1)
+    container.scrollTo(0, start + (target - start) * ease(t))
+    if (t < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+function ModulePill({ mod, icon, text, target, color }: {
+  mod: string; icon: string; text: string; target: string; color: string
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      className="no-min-height"
+      onClick={() => smoothScrollTo(target)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        fontSize: 13, fontWeight: hovered ? 600 : 500,
+        color: hovered ? color : 'var(--ink-2)',
+        background: hovered ? `color-mix(in srgb, ${color} 8%, var(--surface))` : 'var(--surface)',
+        border: hovered ? `1px solid color-mix(in srgb, ${color} 30%, var(--rule))` : '1px solid var(--rule)',
+        borderRadius: 9, padding: '7px 13px',
+        cursor: 'pointer', transition: 'all 140ms ease',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+        boxShadow: hovered ? `0 4px 12px color-mix(in srgb, ${color} 15%, transparent)` : 'none',
+        whiteSpace: 'nowrap', flexShrink: 0,
+      }}
+    >
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, color: hovered ? color : 'var(--ink-4)', letterSpacing: '0.04em', flexShrink: 0 }}>M{mod}</span>
+      <span style={{ fontSize: 13 }}>{icon}</span>
+      <span>{text}</span>
+    </button>
+  )
+}
 
 function initials(name: string) {
   return name.split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
@@ -162,6 +212,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function HomeClient({
   firstName, communityName, communityPurpose,
   phaseProgress, overall, gatesPassed,
+  landSize, plannedHomes, projectCountry,
   memberCount, members, communityValues,
   projects, activeProjectCount, deliverables,
   isLoggedIn, hasApplied, isFullMember,
@@ -241,7 +292,7 @@ export default function HomeClient({
           }}>
             digital clubhouse
           </span>
-          {' '}for a regenerative community being formed — <span style={{ color: 'var(--accent-color)' }}>together</span>.
+          {' '}for our regenerative community being formed — <span style={{ color: 'var(--accent-color)' }}>together</span>.
         </h1>
         <p style={{
           fontSize: 17, color: 'var(--ink-2)', lineHeight: 1.75,
@@ -251,15 +302,37 @@ export default function HomeClient({
             ? communityPurpose
             : "You're not on a social network. You're inside the operating system of a community-in-formation. Meet the people, read the plan, contribute your work, and help decide what happens next."}
         </p>
+        {/* Module pills */}
+        <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--mono)', letterSpacing: '0.04em', marginBottom: 10 }}>
+          Scroll to explore what you can do with MyCoNet ↓
+        </div>
+        <div className="home-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
+          {[
+            { mod: '00', icon: '⊞', text: 'See the community at a glance', target: 'clubhouse', color: 'var(--ink)' },
+            { mod: '01', icon: '👋', text: 'Meet the community & invite others', target: 'meet',   color: 'var(--m1)' },
+            { mod: '04', icon: '📋', text: 'Read the community documentation', target: 'blueprint', color: 'var(--m4)' },
+            { mod: '05', icon: '🌱', text: 'Join if you align with the values', target: 'join',    color: 'var(--m5)' },
+            { mod: '06', icon: '🤝', text: "Make agreements on how you'll collaborate", target: 'agreements', color: 'var(--m6)' },
+            { mod: '07', icon: '⚙️', text: 'Contribute to goals & projects',  target: 'ops',        color: 'var(--m7)' },
+            { mod: '08', icon: '✦',  text: 'Get rewards for your contributions', target: 'contributions', color: 'var(--m8)' },
+            { mod: '09', icon: '☉',  text: 'Make decisions together',          target: 'governance', color: 'var(--m9)' },
+          ].map(({ mod, icon, text, target, color }) => (
+            <ModulePill key={mod} mod={mod} icon={icon} text={text} target={target} color={color} />
+          ))}
+        </div>
+
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <a href="#meet" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            fontSize: 14, fontWeight: 700, color: 'var(--bg)',
-            background: 'var(--ink)', padding: '11px 22px', borderRadius: 9,
-            textDecoration: 'none',
-          }}>
+          <button
+            onClick={() => smoothScrollTo('clubhouse')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              fontSize: 14, fontWeight: 700, color: 'var(--bg)',
+              background: 'var(--ink)', padding: '11px 22px', borderRadius: 9,
+              border: 'none', cursor: 'pointer',
+            }}
+          >
             Take the tour →
-          </a>
+          </button>
           {!isFullMember && (
             <Link href="/join" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -390,8 +463,44 @@ export default function HomeClient({
         </div>
       )}
 
+      {/* ── Dashboard label ─────────────────────────────────── */}
+      <div id="clubhouse" className="home-clubhouse-section" style={{ maxWidth: 1100, margin: '60px auto 0', padding: '0 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32, flexWrap: 'wrap', marginBottom: 28 }}>
+          <div>
+            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+                background: 'color-mix(in srgb, var(--ink) 8%, transparent)',
+                color: 'var(--ink-2)', padding: '4px 12px', borderRadius: 20, marginBottom: 14,
+                cursor: 'pointer',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-2)' }} />
+                Module 00 · Dashboard ↗
+              </span>
+            </Link>
+            <h2 style={{
+              fontFamily: 'var(--display)', fontSize: 'clamp(22px, 2.8vw, 32px)',
+              color: 'var(--ink)', lineHeight: 1.15, letterSpacing: '-0.015em',
+              margin: '0 0 12px', maxWidth: '26ch',
+            }}>Your community, at a glance.</h2>
+            <p style={{ fontSize: 14.5, color: 'var(--ink-2)', lineHeight: 1.7, maxWidth: '52ch', margin: 0 }}>
+              The dashboard brings everything together — who's here, what's being built, and what needs your attention. It updates live as members, projects, and deliverables move forward.
+            </p>
+          </div>
+          <Link href="/dashboard" style={{
+            fontSize: 13, fontWeight: 600, color: 'var(--ink)',
+            background: 'var(--surface)', border: '1px solid var(--rule)',
+            padding: '9px 18px', borderRadius: 9, textDecoration: 'none',
+            whiteSpace: 'nowrap', alignSelf: 'flex-end',
+          }}>
+            Open dashboard →
+          </Link>
+        </div>
+      </div>
+
       {/* ── Clubhouse Preview ───────────────────────────────── */}
-      <div className="home-clubhouse-section" style={{ maxWidth: 1100, margin: '60px auto 0', padding: '0 28px' }} id="clubhouse">
+      <div className="home-clubhouse-section" style={{ maxWidth: 1100, margin: '0 auto 0', padding: '0 28px' }}>
         <div style={{
           borderRadius: 18, overflow: 'hidden',
           boxShadow: '0 12px 36px rgba(0,0,0,.09), 0 4px 10px rgba(0,0,0,.05)',
@@ -467,45 +576,88 @@ export default function HomeClient({
               ))}
             </div>
             {/* Main content */}
-            <div style={{ padding: '22px 24px' }}>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+            <div style={{ padding: '20px 22px', overflowY: 'auto' }}>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>
                 Good morning, {firstName || 'Explorer'}.
               </div>
-              <p style={{ fontSize: 12.5, color: 'var(--ink-3)', marginBottom: 16 }}>
-                You're a <strong style={{ color: 'var(--ink-2)' }}>{roleLabel}</strong> at {communityName}.{' '}
-                {isJoiningPlus
-                  ? 'Welcome — your full community access is active.'
-                  : 'Browse and meet people — sign the values to unlock the full community.'}
+              <p style={{ fontSize: 11.5, color: 'var(--ink-3)', marginBottom: 14 }}>
+                <strong style={{ color: 'var(--ink-2)' }}>{roleLabel}</strong> · {communityName}
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+
+              {/* Stat row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
                 {[
-                  { num: '01', name: 'Community Network', desc: `${memberCount} members and explorers`, color: 'var(--m1)', href: '/network' },
-                  { num: '04', name: 'Project Blueprint', desc: overall !== null ? `${overall.toFixed(1)}/10 readiness · ${currentPhaseIdx >= 0 ? phaseProgress[currentPhaseIdx].name : 'In progress'}` : 'Blueprint in progress', color: 'var(--m4)', href: '/blueprint' },
-                  { num: '05', name: 'Join the community', desc: '3 steps · Sign the values', color: 'var(--m5)', cta: true, href: '/join' },
-                  { num: '06', name: 'Agreements', desc: `${activeProjectCount} open project${activeProjectCount !== 1 ? 's' : ''}`, color: 'var(--m6)', href: '/agreements' },
-                  { num: '07', name: 'Operations', desc: `${activeProjectCount} active project${activeProjectCount !== 1 ? 's' : ''}`, color: 'var(--m7)', href: '/ops' },
-                  { num: '09', name: 'Governance', desc: 'Proposals · consent rounds', color: 'var(--m9)', href: '/dashboard' },
-                ].map((c, i) => (
-                  <Link key={i} href={c.href} style={{ textDecoration: 'none' }}>
-                    <div style={{
-                      position: 'relative', overflow: 'hidden',
-                      background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 8,
-                      padding: '11px 12px', cursor: 'pointer',
-                      transition: 'box-shadow 140ms, transform 140ms',
-                    }}>
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: c.color }} />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, marginTop: 2 }}>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, color: c.color }}>M{c.num}</span>
-                        {c.cta
-                          ? <span style={{ fontSize: 9, fontWeight: 700, background: c.color, color: '#fff', padding: '1px 7px', borderRadius: 20 }}>Start</span>
-                          : <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>↗</span>}
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{c.name}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink-3)', lineHeight: 1.4 }}>{c.desc}</div>
+                  { label: 'Members', value: memberCount, color: 'var(--m1)', href: '/network' },
+                  { label: 'Active projects', value: activeProjectCount, color: 'var(--m7)', href: '/ops' },
+                  { label: 'Deliverables', value: deliverables.length, color: 'var(--m8)', href: '/ops' },
+                ].map(s => (
+                  <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 8, padding: '10px 12px', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, background: s.color }} />
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: 'var(--ink)', lineHeight: 1, marginBottom: 3, marginTop: 2 }}>{s.value}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-4)' }}>{s.label}</div>
                     </div>
                   </Link>
                 ))}
               </div>
+
+              {/* Blueprint readiness */}
+              {overall !== null && (
+                <Link href="/blueprint" style={{ textDecoration: 'none', display: 'block', marginBottom: 14 }}>
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, color: 'var(--m4)' }}>M04 · Blueprint</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>{overall.toFixed(1)} / 10</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 99, background: 'var(--bg-3)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(overall / 10 * 100, 100)}%`, background: 'var(--m4)', borderRadius: 99 }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 5 }}>
+                      {currentPhaseIdx >= 0 ? `Current phase: ${phaseProgress[currentPhaseIdx].name}` : 'All phases complete'}
+                    </div>
+                  </div>
+                </Link>
+              )}
+
+              {/* Active projects */}
+              {projects.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 6 }}>Active projects</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {projects.slice(0, 2).map(p => (
+                      <Link key={p.id} href={`/ops/${p.id}`} style={{ textDecoration: 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 7, padding: '8px 10px' }}>
+                          <span style={{ width: 3, height: 28, borderRadius: 2, background: 'var(--m7)', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                            {p.description && <div style={{ fontSize: 10, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent deliverables */}
+              {deliverables.length > 0 && (
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 6 }}>Recent deliverables</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {deliverables.slice(0, 3).map(d => {
+                      const statusColors: Record<string, string> = { done: '#22c55e', in_progress: '#3b82f6', review: '#f59e0b', backlog: 'var(--ink-4)' }
+                      const color = statusColors[d.status] ?? 'var(--ink-4)'
+                      return (
+                        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 7 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
+                          {d.user_profiles?.username && <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)', flexShrink: 0 }}>@{d.user_profiles.username}</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -591,6 +743,28 @@ export default function HomeClient({
           <DemoCard>
             <div ref={bpRef}>
               <DemoHead color="var(--m4)" modLabel="M04" title={`Blueprint · ${communityName}`} meta={overall !== null ? `${overall.toFixed(1)}/10` : 'In progress'} href="/blueprint" />
+              {/* Land stats */}
+              {(landSize || plannedHomes || projectCountry) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                  {[
+                    { icon: '🏡', label: 'Homes planned', value: plannedHomes },
+                    { icon: '🌍', label: 'Land size',     value: landSize },
+                    { icon: '📍', label: 'Country',       value: projectCountry },
+                  ].map(s => (
+                    <div key={s.label} style={{
+                      background: 'var(--bg-2)', border: '1px solid var(--rule)',
+                      borderRadius: 8, padding: '10px 12px',
+                      display: 'flex', flexDirection: 'column', gap: 4,
+                    }}>
+                      <span style={{ fontSize: 18 }}>{s.icon}</span>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>{s.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: s.value ? 'var(--ink)' : 'var(--ink-4)', lineHeight: 1.3 }}>
+                        {s.value ?? '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Phase tracker */}
               {phaseProgress.length > 0 ? (
                 <>

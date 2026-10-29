@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { VERSION } from '@/core/lib/version'
 import './landing.css'
 
-interface Props { firstName: string | null }
+interface Props { firstName: string | null; communityPurpose?: string | null }
 
 /* ── Tiny SVG icons ── */
 const Check = ({ size = 12 }: { size?: number }) => (
@@ -25,15 +25,15 @@ const initials = (n: string) => n.split(' ').map(s => s[0]).slice(0, 2).join('')
 
 /* ── Data ── */
 const CH_CARDS = [
-  { num: '01', name: 'Community Network',  desc: 'Meet 38 members and explorers',           color: 'var(--m1)' },
-  { num: '04', name: 'Project Blueprint',  desc: 'Phase 2 of 4 · PROVE',                    color: 'var(--m4)' },
-  { num: '05', name: 'Join the community', desc: '4 steps · Sign the values',               color: 'var(--m5)', cta: true },
-  { num: '06', name: 'Active projects',    desc: '5 open · 2 need help this week',          color: 'var(--m6)' },
-  { num: '07', name: 'Operations',         desc: '12 deliverables · 3 due Friday',          color: 'var(--m7)' },
-  { num: '08', name: 'Your contributions', desc: '420 pts · 3 badges · top 25%',            color: 'var(--m8)' },
-  { num: '09', name: 'Governance',         desc: '2 proposals open for your vote',          color: 'var(--m9)' },
-  { num: '04', name: 'Blueprint pillars',  desc: 'Ecology 4 · Social 3 · Economy 2',        color: 'var(--m4)' },
-  { num: '01', name: 'Travel & visits',    desc: '3 explorers visiting next month',         color: 'var(--m1)' },
+  { num: '01', name: 'Community Network',  desc: 'Meet 38 members and explorers',           color: 'var(--m1)', href: '/network' },
+  { num: '04', name: 'Project Blueprint',  desc: 'Phase 2 of 4 · PROVE',                    color: 'var(--m4)', href: '/blueprint' },
+  { num: '05', name: 'Join the community', desc: '4 steps · Sign the values',               color: 'var(--m5)', href: '/join', cta: true },
+  { num: '06', name: 'Active projects',    desc: '5 open · 2 need help this week',          color: 'var(--m6)', href: '/agreements' },
+  { num: '07', name: 'Operations',         desc: '12 deliverables · 3 due Friday',          color: 'var(--m7)', href: '/ops' },
+  { num: '08', name: 'Your contributions', desc: '420 pts · 3 badges · top 25%',            color: 'var(--m8)', href: '/contributions' },
+  { num: '09', name: 'Governance',         desc: '2 proposals open for your vote',          color: 'var(--m9)', href: '/governance' },
+  { num: '04', name: 'Blueprint pillars',  desc: 'Ecology 4 · Social 3 · Economy 2',        color: 'var(--m4)', href: '/blueprint' },
+  { num: '01', name: 'Travel & visits',    desc: '3 explorers visiting next month',         color: 'var(--m1)', href: '/network' },
 ]
 
 const MEMBERS = [
@@ -151,7 +151,7 @@ function TopBar({ name }: { name: string | null }) {
 }
 
 /* ── Hero ── */
-function Hero({ name }: { name: string | null }) {
+function Hero({ name, communityPurpose }: { name: string | null; communityPurpose: string | null }) {
   const displayName = name ?? 'you'
   return (
     <section className="lp-hero" id="welcome">
@@ -162,9 +162,9 @@ function Hero({ name }: { name: string | null }) {
         neighborhood being formed — <span className="accent">together</span>.
       </h1>
       <p className="lp-lead">
-        You&apos;re not on a social network. You&apos;re inside the operating system of a community-in-formation.
-        Meet the people gathering around it, read the plan they&apos;re building, contribute the
-        work you&apos;re good at, and help decide what happens next.
+        {communityPurpose
+          ? communityPurpose
+          : "You're not on a social network. You're inside the operating system of a community-in-formation. Meet the people gathering around it, read the plan they're building, contribute the work you're good at, and help decide what happens next."}
       </p>
       <div className="lp-cta-row">
         <a className="lp-btn lp-btn-primary" href="#meet">Take the tour <Arrow /></a>
@@ -228,17 +228,19 @@ function ClubhousePreview({ name }: { name: string | null }) {
             </p>
             <div className="lp-ch-grid">
               {CH_CARDS.map((c, i) => (
-                <div className="lp-ch-card" key={i}>
-                  <div className="lp-accent-bar" style={{ background: c.color }} />
-                  <div className="lp-ch-card-row1">
-                    <span className="lp-mtag" style={{ color: c.color }}>M{c.num}</span>
-                    {c.cta
-                      ? <span className="lp-badge" style={{ background: c.color }}>Start</span>
-                      : <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>↗</span>}
+                <Link href={c.href} key={i} style={{ textDecoration: 'none' }}>
+                  <div className="lp-ch-card" style={{ cursor: 'pointer' }}>
+                    <div className="lp-accent-bar" style={{ background: c.color }} />
+                    <div className="lp-ch-card-row1">
+                      <span className="lp-mtag" style={{ color: c.color }}>M{c.num}</span>
+                      {c.cta
+                        ? <span className="lp-badge" style={{ background: c.color }}>Start</span>
+                        : <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)' }}>↗</span>}
+                    </div>
+                    <div className="lp-title">{c.name}</div>
+                    <div className="lp-desc">{c.desc}</div>
                   </div>
-                  <div className="lp-title">{c.name}</div>
-                  <div className="lp-desc">{c.desc}</div>
-                </div>
+                </Link>
               ))}
             </div>
           </main>
@@ -737,11 +739,10 @@ function Closing({ name }: { name: string | null }) {
 }
 
 /* ── Root ── */
-export default function LandingClient({ firstName }: Props) {
+export default function LandingClient({ firstName, communityPurpose }: Props) {
   return (
     <div className="lp">
-      <TopBar name={firstName} />
-      <Hero name={firstName} />
+      <Hero name={firstName} communityPurpose={communityPurpose ?? null} />
       <ClubhousePreview name={firstName} />
       <MeetSection />
       <BlueprintSection />

@@ -121,7 +121,7 @@ export default function ProjectDetailClient({
   pendingProposals: CollaborationAgreement[]
   deliverables: Deliverable[]
   myProposal: MyProposal | null
-  userId: string
+  userId: string | null
   userRole: string
   isAdmin: boolean
   isProjectCreator: boolean
@@ -136,7 +136,7 @@ export default function ProjectDetailClient({
   const s = PROJECT_STATUS_META[project.status] ?? PROJECT_STATUS_META.backlog
 
   const canManage = isAdmin || isProjectCreator
-  const canPropose = !canManage && isJoiningOrAbove(userRole) && project.open_for_collaborators && isOpenForProposals(project.status)
+  const canPropose = !canManage && project.open_for_collaborators && isOpenForProposals(project.status)
 
   // ── Kanban state ─────────────────────────────────────────────────────────
   const [deliverables, setDeliverables] = useState<Deliverable[]>(initialDeliverables)
@@ -215,6 +215,7 @@ export default function ProjectDetailClient({
   }
 
   async function toggleProjectSubscription() {
+    if (!userId) { router.push('/auth/signup'); return }
     setTogglingProjectSub(true)
     if (subscribedToProject) {
       setSubscribedToProject(false)
@@ -222,14 +223,15 @@ export default function ProjectDetailClient({
       await supabase.from('project_subscriptions').delete().eq('project_id', project.id).eq('user_id', userId)
     } else {
       setSubscribedToProject(true)
-      setProjectSubsList(prev => [...prev, { user_id: userId, first_name: null, username: null }])
-      await supabase.from('project_subscriptions').insert({ project_id: project.id, user_id: userId })
+      setProjectSubsList(prev => [...prev, { user_id: userId!, first_name: null, username: null }])
+      await supabase.from('project_subscriptions').insert({ project_id: project.id, user_id: userId! })
     }
     setTogglingProjectSub(false)
   }
 
   async function toggleDeliverableSubscription(deliverableId: string, e?: React.MouseEvent) {
     e?.stopPropagation()
+    if (!userId) { router.push('/auth/signup'); return }
     const isSubbed = myDeliverableSubIds.has(deliverableId)
     if (isSubbed) {
       setDeliverableSubsMap(prev => ({
@@ -240,13 +242,14 @@ export default function ProjectDetailClient({
     } else {
       setDeliverableSubsMap(prev => ({
         ...prev,
-        [deliverableId]: [...(prev[deliverableId] ?? []), { user_id: userId, first_name: null, username: null }],
+        [deliverableId]: [...(prev[deliverableId] ?? []), { user_id: userId!, first_name: null, username: null }],
       }))
-      await supabase.from('deliverable_subscriptions').insert({ deliverable_id: deliverableId, user_id: userId })
+      await supabase.from('deliverable_subscriptions').insert({ deliverable_id: deliverableId, user_id: userId! })
     }
   }
 
   async function submitProposal() {
+    if (!userId) { router.push('/auth/signup'); return }
     if (!workDesc.trim() || !reward.trim()) return
     setSubmitting(true)
     setSubmitError(null)
@@ -797,8 +800,8 @@ export default function ProjectDetailClient({
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>
                                 {assignee && <span>{assignee}</span>}
                                 {d.due_date && (
-                                  <span style={{ color: isOverdue ? '#ef4444' : 'var(--ink-4)' }}>
-                                    {assignee ? '· ' : ''}{fmtDate(d.due_date)}
+                                  <span style={{ color: isOverdue ? '#ef4444' : 'var(--ink-4)', fontWeight: isOverdue ? 700 : 400 }}>
+                                    {assignee ? '· ' : ''}{fmtDate(d.due_date)}{isOverdue ? ' ⚠' : ''}
                                   </span>
                                 )}
                               </div>
@@ -968,7 +971,6 @@ export default function ProjectDetailClient({
               width: '100%', maxWidth: 480,
               boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
               animation: 'calFadeIn 160ms ease',
-              overflow: 'hidden',
             }}
           >
             {/* Modal header */}

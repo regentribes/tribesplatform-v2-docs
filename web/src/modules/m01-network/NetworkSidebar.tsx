@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar
 import { Button } from '@/core/components/ui/button'
 import { cn } from '@/core/lib/utils'
 import {
-  Sprout, LayoutDashboard, User, Sparkles, Search,
+  LayoutDashboard, User, Sparkles, Search,
   Gift, HelpCircle, Pencil, LogOut, ChevronUp,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -45,27 +45,6 @@ export default function NetworkSidebar({ user }: Props) {
         'net-sidebar flex-col w-60 shrink-0 sticky overflow-y-auto',
         'bg-sidebar border-r border-sidebar-border'
       )} style={{ top: 52, height: 'calc(100vh - 52px)' }}>
-
-        {/* Module identity band */}
-        <Link href="/network" style={{ textDecoration: 'none' }}>
-          <div style={{
-            background: '#92400e',
-            padding: '18px 16px 16px',
-            borderBottom: '1px solid rgba(0,0,0,0.15)',
-          }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>
-              MyCoNet · Module
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontFamily: 'var(--display)', fontSize: 44, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.03em' }}>01</span>
-              <div style={{ paddingBottom: 6 }}>
-                <Sprout style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.6)' }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '0.01em' }}>Community Network</div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>MyCommunityNetwork</div>
-          </div>
-        </Link>
 
         {/* Main nav */}
         <div className="flex-1 px-3 pb-3 pt-2">

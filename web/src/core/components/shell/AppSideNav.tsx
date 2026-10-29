@@ -172,9 +172,10 @@ interface Props {
   mobileOpen?: boolean
   onClose?: () => void
   initialRole?: string
+  isLoggedIn?: boolean
 }
 
-export default function AppSideNav({ mobileOpen, onClose, initialRole = 'explorer' }: Props) {
+export default function AppSideNav({ mobileOpen, onClose, initialRole = 'explorer', isLoggedIn = false }: Props) {
   const pathname = usePathname()
   const [role] = useState<string>(initialRole)
 
@@ -218,8 +219,21 @@ export default function AppSideNav({ mobileOpen, onClose, initialRole = 'explore
 
       <SectionLabel label="Welcome Home" />
       {MEMBER_MODULES.map(m => (
-        <NavItem key={m.num} {...m} active={isActive(m.href)} onClick={onClose} />
+        <NavItem
+          key={m.num}
+          {...m}
+          active={isActive(m.href)}
+          onClick={onClose}
+        />
       ))}
+      {!isLoggedIn && (
+        <div style={{ margin: '4px 6px 0', padding: '6px 10px', borderRadius: 7, background: 'var(--bg-2)', border: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 10.5, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>view only</span>
+          <a href="/auth/signup" style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--m9)', textDecoration: 'none' }}>
+            Join to interact →
+          </a>
+        </div>
+      )}
 
       {isAdmin(role) && (
         <>
@@ -249,7 +263,7 @@ export default function AppSideNav({ mobileOpen, onClose, initialRole = 'explore
 
       <div style={{ flex: 1 }} />
 
-      <JourneyBox role={role} />
+      {isLoggedIn && <JourneyBox role={role} />}
     </nav>
   )
 }

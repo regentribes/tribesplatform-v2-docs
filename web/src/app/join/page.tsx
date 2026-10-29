@@ -1,7 +1,6 @@
 import { createClient } from '@/core/lib/supabase/server'
 import JoinClient from '@/modules/m05-join/JoinClient'
 import JoinAdminClient from '@/modules/m05-join/JoinAdminClient'
-import ModuleHeader from '@/core/components/ModuleHeader'
 import { isCircleAdmin } from '@/core/lib/roles'
 
 export default async function JoinPage() {
@@ -34,43 +33,7 @@ export default async function JoinPage() {
 
   const isAdmin = isCircleAdmin(role)
 
-  if (isAdmin) {
-    const { data: apps } = await supabase
-      .from('applications')
-      .select('id, user_id, status, answers, admin_notes, created_at')
-      .order('created_at', { ascending: false })
-
-    const userIds = (apps ?? []).map(a => a.user_id)
-    const { data: profiles } = userIds.length > 0
-      ? await supabase
-          .from('user_profiles')
-          .select('id, first_name, username')
-          .in('id', userIds)
-      : { data: [] }
-
-    const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
-
-    const enriched = (apps ?? []).map(a => ({
-      ...a,
-      answers: (a.answers as Record<string, string>) ?? {},
-      admin_notes: a.admin_notes ?? null,
-      first_name: profileMap[a.user_id]?.first_name ?? null,
-      username: profileMap[a.user_id]?.username ?? null,
-    }))
-
-    return (
-      <>
-        <ModuleHeader num="05" standalone />
-        <JoinAdminClient applications={enriched} questions={questions} />
-      </>
-    )
-  }
-
-  let existingApplication: { status: string; answers: Record<string, string>; created_at: string } | null = null
-  let userProfile: { first_name: string | null; last_name: string | null; headline: string | null; city: string | null; country: string | null } | null = null
-  let signedValueIds: string[] = []
-  let buddyProfiles: { id: string; first_name: string | null; headline: string | null; city: string | null }[] = []
-
+  // Always fetch community data — the roadmap is shown to all users
   const { data: valuesData } = await supabase
     .from('community_values')
     .select('id, title, description, sort_order')
@@ -81,8 +44,11 @@ export default async function JoinPage() {
     ? supabase.from('user_profiles').select('id, first_name, headline, city').neq('id', user.id).limit(3)
     : supabase.from('user_profiles').select('id, first_name, headline, city').limit(3)
   const { data: buddiesData } = await buddiesQuery
-  buddyProfiles = (buddiesData ?? []) as any
+  const buddyProfiles = (buddiesData ?? []) as any
 
+  let existingApplication: { status: string; answers: Record<string, string>; created_at: string } | null = null
+  let userProfile: { first_name: string | null; last_name: string | null; headline: string | null; city: string | null; country: string | null } | null = null
+  let signedValueIds: string[] = []
   let hasContribution = false
   let hasOwnProject = false
 
@@ -124,18 +90,56 @@ export default async function JoinPage() {
 
   const isProfileComplete = !!(userProfile?.first_name && userProfile?.headline)
 
+  // For admin/circle_lead: also fetch applications to review
+  let adminApps: {
+    id: string; user_id: string; status: string; answers: Record<string, string>;
+    admin_notes: string | null; created_at: string; first_name: string | null; username: string | null;
+  }[] = []
+
+  if (isAdmin) {
+    const { data: apps } = await supabase
+      .from('applications')
+      .select('id, user_id, status, answers, admin_notes, created_at')
+      .order('created_at', { ascending: false })
+
+    const userIds = (apps ?? []).map(a => a.user_id)
+    const { data: profiles } = userIds.length > 0
+      ? await supabase
+          .from('user_profiles')
+          .select('id, first_name, username')
+          .in('id', userIds)
+      : { data: [] }
+
+    const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+
+    adminApps = (apps ?? []).map(a => ({
+      ...a,
+      answers: (a.answers as Record<string, string>) ?? {},
+      admin_notes: a.admin_notes ?? null,
+      first_name: profileMap[a.user_id]?.first_name ?? null,
+      username: profileMap[a.user_id]?.username ?? null,
+    }))
+  }
+
   return (
-    <JoinClient
-      userId={user?.id ?? null}
-      userRole={role}
-      existingApplication={existingApplication}
-      userProfile={userProfile}
-      communityValues={communityValues}
-      initialSignedValueIds={signedValueIds}
-      buddyProfiles={buddyProfiles}
-      isProfileComplete={isProfileComplete}
-      hasContribution={hasContribution}
-      hasOwnProject={hasOwnProject}
-    />
+    <>
+      <JoinClient
+        userId={user?.id ?? null}
+        userRole={role}
+        existingApplication={existingApplication}
+        userProfile={userProfile}
+        communityValues={communityValues}
+        initialSignedValueIds={signedValueIds}
+        buddyProfiles={buddyProfiles}
+        isProfileComplete={isProfileComplete}
+        hasContribution={hasContribution}
+        hasOwnProject={hasOwnProject}
+      />
+      {isAdmin && (
+        <div style={{ borderTop: '1px solid var(--rule)' }}>
+          <JoinAdminClient applications={adminApps} questions={questions} />
+        </div>
+      )}
+    </>
   )
 }

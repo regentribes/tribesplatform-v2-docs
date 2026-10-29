@@ -1,5 +1,5 @@
-export const MEMBER_ROLES = ['member', 'circle_lead', 'project_lead', 'admin'] as const
-export const JOINING_OR_ABOVE = ['joining', 'member', 'circle_lead', 'project_lead', 'admin'] as const
+export const MEMBER_ROLES = ['member', 'circle_lead', 'project_lead', 'advisor', 'admin'] as const
+export const JOINING_OR_ABOVE = ['joining', 'member', 'circle_lead', 'project_lead', 'advisor', 'admin'] as const
 
 // All full members + leads + admin can vote and propose in Governance
 export const isFullMember = (role: string): boolean =>
@@ -19,3 +19,10 @@ export const isOpsAdmin = (role: string): boolean =>
 
 // Only admin can directly edit records
 export const isAdmin = (role: string): boolean => role === 'admin'
+
+// L1 Sociocracy voters
+export const isCircleLead = (role: string): boolean => role === 'circle_lead'
+
+// L3 Meritocracy voters
+export const isAdvisorOrAdmin = (role: string): boolean =>
+  ['advisor', 'admin'].includes(role)

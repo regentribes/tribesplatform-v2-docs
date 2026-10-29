@@ -7,12 +7,24 @@ export default async function NetworkDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [memberCountRes, recentRes] = await Promise.all([
+  const [memberCountRes, recentRes, recentJoinsRes, recentOffersRes, recentSeeksRes] = await Promise.all([
     supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
     supabase.from('user_profiles')
       .select('id, username, first_name, last_name, avatar_url, user_types, city, country')
       .order('created_at', { ascending: false })
       .limit(8),
+    supabase.from('user_profiles')
+      .select('id, first_name, last_name, username, created_at')
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase.from('user_offers')
+      .select('id, title, created_at, user_profiles(first_name, last_name, username)')
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase.from('user_requests')
+      .select('id, title, created_at, user_profiles(first_name, last_name, username)')
+      .order('created_at', { ascending: false })
+      .limit(6),
   ])
 
   const memberCount = memberCountRes.count ?? 0
@@ -24,12 +36,14 @@ export default async function NetworkDashboard() {
   let myBio: Bio = null
   let topMatches: { profile: NonNullable<typeof recentRes.data>[number]; score: number; reasons: string[] }[] = []
   const recentMatchScores: Record<string, MatchResult> = {}
+  let profileSteps: { label: string; complete: boolean }[] | null = null
+  let profileCompleteness = 0
 
   if (user) {
     const [offersRes, seeksRes, profileRes, allProfilesRes, allBiosRes, myBioRes] = await Promise.all([
       supabase.from('user_offers').select('id').eq('user_id', user.id),
       supabase.from('user_requests').select('id').eq('user_id', user.id),
-      supabase.from('user_profiles').select('first_name, last_name, city, country').eq('id', user.id).maybeSingle(),
+      supabase.from('user_profiles').select('first_name, last_name, city, country, headline').eq('id', user.id).maybeSingle(),
       supabase.from('user_profiles')
         .select('id, username, first_name, last_name, avatar_url, city, country, user_types')
         .neq('id', user.id),
@@ -45,6 +59,20 @@ export default async function NetworkDashboard() {
       : null
 
     myBio = myBioRes.data ? { ...myBioRes.data, city: profile?.city, country: profile?.country } as Bio : null
+
+    if (profile) {
+      const pd = myBioRes.data?.personality_details as { myersBriggs?: string } | null
+      profileSteps = [
+        { label: 'Name',        complete: !!profile.first_name },
+        { label: 'Headline',    complete: !!(profile as any).headline },
+        { label: 'Values',      complete: !!(myBioRes.data?.values_principles) },
+        { label: 'Personality', complete: !!pd?.myersBriggs },
+        { label: 'Skills',      complete: ((myBioRes.data?.skills as string[] | null)?.length ?? 0) > 0 },
+        { label: 'Goals',       complete: !!(myBioRes.data?.goals) },
+        { label: 'Offers',      complete: offersCount > 0 },
+      ]
+      profileCompleteness = Math.round(profileSteps.filter(s => s.complete).length / profileSteps.length * 100)
+    }
     const profileLocById = new Map<string, { city?: string | null; country?: string | null }>()
     for (const p of allProfilesRes.data ?? []) profileLocById.set(p.id, { city: p.city, country: p.country })
     const bioMap: Record<string, Bio> = {}
@@ -67,6 +95,30 @@ export default async function NetworkDashboard() {
       }
     }
   }
+
+
+
+  type MemberActivity = { id: string; who: string; act: string; href: string; ts: number }
+  const memberActivity: MemberActivity[] = [
+    ...(recentJoinsRes.data ?? []).filter((m: any) => m.id !== user?.id).map((m: any) => {
+      const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username || 'Someone'
+      return { id: 'join-' + m.id, who: name, act: 'joined the community', href: `/u/${m.username}`, ts: new Date(m.created_at).getTime() }
+    }),
+    ...(recentOffersRes.data ?? []).map((o: any) => {
+      const p = o.user_profiles as any
+      const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+      const title = (o.title as string).length > 50 ? (o.title as string).slice(0, 48) + '…' : o.title
+      return { id: 'offer-' + o.id, who: name, act: `posted an offer — "${title}"`, href: `/u/${p?.username}`, ts: new Date(o.created_at).getTime() }
+    }),
+    ...(recentSeeksRes.data ?? []).map((s: any) => {
+      const p = s.user_profiles as any
+      const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.username || 'Someone'
+      const title = (s.title as string).length > 50 ? (s.title as string).slice(0, 48) + '…' : s.title
+      return { id: 'seek-' + s.id, who: name, act: `is looking for — "${title}"`, href: `/u/${p?.username}`, ts: new Date(s.created_at).getTime() }
+    }),
+  ]
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 10)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -130,6 +182,45 @@ export default async function NetworkDashboard() {
         </div>
       )}
 
+      {/* ── Profile completeness tracker ── */}
+      {user && profileSteps && profileCompleteness < 100 && (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--rule)',
+          borderRadius: 10, padding: '12px 16px', marginBottom: 22,
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+        }}>
+          <div style={{ minWidth: 100 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 5 }}>
+              Profile
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 80, height: 5, borderRadius: 3, background: 'var(--rule)', overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ height: '100%', width: `${profileCompleteness}%`, background: 'var(--m1)', borderRadius: 3 }} />
+              </div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>
+                {profileCompleteness}%
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
+            {profileSteps.map(s => (
+              <span key={s.label} style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 20,
+                background: s.complete ? 'color-mix(in srgb, var(--m1) 12%, transparent)' : 'var(--bg-2)',
+                color: s.complete ? 'var(--m1)' : 'var(--ink-4)',
+                fontWeight: s.complete ? 600 : 400,
+                border: s.complete ? 'none' : '1px solid var(--rule)',
+              }}>
+                {s.label}
+              </span>
+            ))}
+          </div>
+          <Link href="/profile/edit" style={{ fontSize: 13, fontWeight: 700, color: 'var(--m1)', textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            Complete Profile →
+          </Link>
+        </div>
+      )}
+
       {/* ── Stat cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 22 }}>
         <StatCard label="Members" value={String(memberCount)} delta="across the network" href="/network/discover" />
@@ -183,6 +274,46 @@ export default async function NetworkDashboard() {
         </section>
       )}
 
+      {/* ── Member activity feed ── */}
+      {memberActivity.length > 0 && (
+        <section style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              M01 · Network activity
+            </span>
+            <Link href="/network/discover" style={{ fontSize: 12.5, color: 'var(--m1)', fontWeight: 600, textDecoration: 'none' }}>
+              Search network →
+            </Link>
+          </div>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '4px 0', display: 'flex', flexDirection: 'column' }}>
+            {memberActivity.map((item, i) => (
+              <Link key={item.id} href={item.href} style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 14px',
+                  borderBottom: i < memberActivity.length - 1 ? '1px solid color-mix(in srgb, var(--rule) 60%, transparent)' : 'none',
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                    background: 'color-mix(in srgb, var(--m1) 15%, var(--surface))',
+                    display: 'grid', placeItems: 'center',
+                    fontSize: 9.5, fontWeight: 700, color: 'var(--m1)',
+                  }}>
+                    {item.who[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <strong style={{ color: 'var(--ink)' }}>{item.who}</strong>{' '}{item.act}
+                  </div>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>
+                    {netTimeAgo(item.ts)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Members section ── */}
       <section>
         <MemberList members={recentUsers} matchScores={recentMatchScores} />
@@ -192,6 +323,17 @@ export default async function NetworkDashboard() {
 }
 
 /* ── Helpers ── */
+
+function netTimeAgo(ts: number): string {
+  const m = Math.floor((Date.now() - ts) / 60000)
+  if (m < 2) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d ago`
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 function StatCard({ label, value, delta, deltaColor, href }: {
   label: string; value: string; delta: string; deltaColor?: string; href?: string

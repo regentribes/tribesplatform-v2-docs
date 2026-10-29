@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/core/lib/supabase/client'
-import { isPillar, PILLAR_META } from '@/core/lib/pillars'
+import { isPillar, PILLAR_META, PILLARS } from '@/core/lib/pillars'
 import { PROJECT_KANBAN_COLUMNS } from '@/core/lib/project-status'
 import { DeliverablesTab } from './DeliverablesTab'
 import { UpdatesTab } from './UpdatesTab'
@@ -79,11 +79,21 @@ function SubscriberAvatars({ subscribers, max = 3 }: { subscribers: SubscriberPr
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, delta, valueColor = 'var(--ink)' }: {
+function StatCard({ label, value, delta, valueColor = 'var(--ink)', onClick, active }: {
   label: string; value: string | number; delta: string; valueColor?: string
+  onClick?: () => void; active?: boolean
 }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px' }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? 'color-mix(in srgb, #f59e0b 10%, var(--surface))' : 'var(--surface)',
+        border: `1px solid ${active ? '#f59e0b' : 'var(--rule)'}`,
+        borderRadius: 10, padding: '14px 16px',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'border-color 120ms, background 120ms',
+      }}
+    >
       <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 4 }}>
         {label}
       </div>
@@ -205,6 +215,9 @@ export default function OpsClient({
   const [boardProjects, setBoardProjects] = useState<Project[]>(projects)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
+  const [selectedCircle, setSelectedCircle] = useState<string | null>(null)
+  const [myRole, setMyRole] = useState<'all' | 'lead' | 'member' | 'subscriber'>('all')
+  const [overdueOnly, setOverdueOnly] = useState(false)
 
   async function moveProject(projectId: string, newStatus: string) {
     const p = boardProjects.find(x => x.id === projectId)
@@ -232,8 +245,31 @@ export default function OpsClient({
     subtasksByProject.set(d.project_id, e)
   }
 
+  const overdueToday = new Date(); overdueToday.setHours(0, 0, 0, 0)
+  const overdueProjectIds = new Set(
+    initialDeliverables
+      .filter(d => d.due_date && !['done', 'review'].includes(d.status) && new Date(d.due_date) < overdueToday)
+      .map(d => d.project_id)
+  )
+
+  const myAssignedProjectIds = new Set(
+    userId ? initialDeliverables.filter(d => d.assignee_id === userId).map(d => d.project_id) : []
+  )
+  const mySubscribedProjectIds = new Set(
+    userId ? Object.entries(projectSubscribers).filter(([, subs]) => subs.some(s => s.user_id === userId)).map(([id]) => id) : []
+  )
+
+  const filteredProjects = boardProjects.filter(p => {
+    if (overdueOnly && !overdueProjectIds.has(p.id)) return false
+    if (selectedCircle && p.circle !== selectedCircle) return false
+    if (myRole === 'lead') return p.lead_user_id === userId || p.created_by === userId
+    if (myRole === 'member') return myAssignedProjectIds.has(p.id)
+    if (myRole === 'subscriber') return mySubscribedProjectIds.has(p.id)
+    return true
+  })
+
   const grouped = Object.fromEntries(
-    PROJECT_KANBAN_COLUMNS.map(col => [col.key, boardProjects.filter(p => p.status === col.key)])
+    PROJECT_KANBAN_COLUMNS.map(col => [col.key, filteredProjects.filter(p => p.status === col.key)])
   )
 
   function tabStyle(tab: typeof activeTab): React.CSSProperties {
@@ -294,7 +330,13 @@ export default function OpsClient({
         <StatCard label="Active" value={activeCount} delta={`+${activeCount} this sprint`} />
         <StatCard label="Deliverables" value={deliverableCount} delta={`${doneCount} done · ${deliverableCount - doneCount} to go`} />
         <StatCard label="On track" value={onTrackCount} valueColor="var(--m5)" delta="across active projects" />
-        <StatCard label="At risk" value={atRiskCount} valueColor={atRiskCount > 0 ? '#f59e0b' : 'var(--ink)'} delta={atRiskCount === 0 ? 'no late items' : `${atRiskCount} overdue`} />
+        <StatCard
+          label="At risk" value={atRiskCount}
+          valueColor={atRiskCount > 0 ? '#f59e0b' : 'var(--ink)'}
+          delta={atRiskCount === 0 ? 'no late items' : `${atRiskCount} overdue · click to filter`}
+          active={overdueOnly}
+          onClick={atRiskCount > 0 ? () => { setOverdueOnly(v => !v); setActiveTab('board') } : undefined}
+        />
         <StatCard label="Projects" value={totalProjects} delta={`${totalProjects} total`} />
       </div>
 
@@ -307,6 +349,79 @@ export default function OpsClient({
 
       {/* ── Board ─────────────────────────────────────────────────────── */}
       {activeTab === 'board' && (
+        <>
+          {/* Overdue filter banner */}
+          {overdueOnly && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'color-mix(in srgb, #f59e0b 10%, var(--surface))',
+              border: '1px solid #f59e0b', borderRadius: 8,
+              padding: '8px 14px', marginBottom: 12,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#b45309' }}>⚠ Showing only projects with overdue tasks</span>
+              <button
+                onClick={() => setOverdueOnly(false)}
+                style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#b45309', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+              >
+                Clear filter ✕
+              </button>
+            </div>
+          )}
+          {/* Filters */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {/* Circle filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--mono)', marginRight: 2 }}>Circle</span>
+              {[null, ...PILLARS].map(circle => {
+                const meta = circle ? PILLAR_META[circle] : null
+                const isActive = selectedCircle === circle
+                return (
+                  <button
+                    key={circle ?? 'all'}
+                    onClick={() => setSelectedCircle(circle)}
+                    style={{
+                      fontSize: 11, fontWeight: isActive ? 700 : 400,
+                      color: isActive ? (meta?.color ?? 'var(--m7)') : 'var(--ink-3)',
+                      background: isActive ? (meta ? `${meta.color}18` : 'color-mix(in srgb, var(--m7) 12%, var(--surface))') : 'var(--bg-2)',
+                      border: `1px solid ${isActive ? (meta?.color ?? 'var(--m7)') : 'var(--rule)'}`,
+                      borderRadius: 20, padding: '3px 10px', cursor: 'pointer', outline: 'none',
+                      transition: 'all 120ms',
+                    }}
+                  >
+                    {meta ? `${meta.emoji} ${meta.label}` : 'All'}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* My role filter — only when logged in */}
+            {userId && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--mono)', marginRight: 2 }}>My role</span>
+                {(['all', 'lead', 'member', 'subscriber'] as const).map(role => {
+                  const isActive = myRole === role
+                  const labels: Record<typeof role, string> = { all: 'All', lead: 'Lead', member: 'Member', subscriber: 'Watching' }
+                  return (
+                    <button
+                      key={role}
+                      onClick={() => setMyRole(role)}
+                      style={{
+                        fontSize: 11, fontWeight: isActive ? 700 : 400,
+                        color: isActive ? 'var(--m7)' : 'var(--ink-3)',
+                        background: isActive ? 'color-mix(in srgb, var(--m7) 12%, var(--surface))' : 'var(--bg-2)',
+                        border: `1px solid ${isActive ? 'var(--m7)' : 'var(--rule)'}`,
+                        borderRadius: 20, padding: '3px 10px', cursor: 'pointer', outline: 'none',
+                        transition: 'all 120ms',
+                      }}
+                    >
+                      {labels[role]}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {PROJECT_KANBAN_COLUMNS.map(col => {
             const cards = grouped[col.key] ?? []
@@ -371,6 +486,7 @@ export default function OpsClient({
             )
           })}
         </div>
+        </>
       )}
 
       {activeTab === 'deliverables' && (

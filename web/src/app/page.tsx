@@ -8,5 +8,12 @@ export default async function LandingPage() {
 
   if (user) redirect('/home')
 
-  return <LandingClient firstName={null} />
+  const { data: bp } = await supabase
+    .from('blueprints')
+    .select('answers')
+    .eq('is_community', true)
+    .maybeSingle()
+  const communityPurpose = ((bp?.answers as Record<string, unknown>)?.purpose as string) || null
+
+  return <LandingClient firstName={null} communityPurpose={communityPurpose} />
 }

@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         }} />
       </head>
       <body>
-        <AppShell role={role}>{children}</AppShell>
+        <AppShell role={role} isLoggedIn={!!user}>{children}</AppShell>
       </body>
     </html>
   )

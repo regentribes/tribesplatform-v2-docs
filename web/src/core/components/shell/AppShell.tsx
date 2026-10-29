@@ -3,13 +3,14 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import AppTopBar from '@/core/components/shell/AppTopBar'
 import AppSideNav from '@/core/components/shell/AppSideNav'
+import AppFooter from '@/core/components/shell/AppFooter'
 import { ProfileCompletionProvider } from '@/core/contexts/ProfileCompletion'
 
-export default function AppShell({ children, role }: { children: React.ReactNode; role: string }) {
+export default function AppShell({ children, role, isLoggedIn = false }: { children: React.ReactNode; role: string; isLoggedIn?: boolean }) {
   const pathname = usePathname()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  if (pathname === '/' || pathname.startsWith('/auth/')) {
+  if (pathname.startsWith('/auth/')) {
     return <>{children}</>
   }
 
@@ -24,9 +25,11 @@ export default function AppShell({ children, role }: { children: React.ReactNode
           mobileOpen={mobileNavOpen}
           onClose={() => setMobileNavOpen(false)}
           initialRole={role}
+          isLoggedIn={isLoggedIn}
         />
-        <main style={{ overflowY: 'auto', background: 'var(--bg)' }}>
-          {children}
+        <main style={{ overflowY: 'auto', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1 }}>{children}</div>
+          <AppFooter />
         </main>
       </div>
 

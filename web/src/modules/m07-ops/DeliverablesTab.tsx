@@ -56,6 +56,8 @@ export function DeliverablesTab({ deliverables, projects }: {
         <tbody>
           {deliverables.map(d => {
             const pill = STATUS_PILL[d.status] ?? STATUS_PILL.backlog
+            const today = new Date(); today.setHours(0, 0, 0, 0)
+            const isOverdue = !!d.due_date && !['done', 'review'].includes(d.status) && new Date(d.due_date) < today
             return (
               <tr key={d.id}>
                 <td style={{ ...tdStyle, fontWeight: 500, color: 'var(--ink)' }}>{d.title}</td>
@@ -65,8 +67,8 @@ export function DeliverablesTab({ deliverables, projects }: {
                 <td style={{ ...tdStyle, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)' }}>
                   {d.assignee_username ?? '—'}
                 </td>
-                <td style={{ ...tdStyle, fontFamily: 'var(--mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                  {fmtDate(d.due_date)}
+                <td style={{ ...tdStyle, fontFamily: 'var(--mono)', fontSize: 11, whiteSpace: 'nowrap', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 'inherit' }}>
+                  {fmtDate(d.due_date)}{isOverdue ? ' ⚠' : ''}
                 </td>
                 <td style={tdStyle}>
                   <span style={{

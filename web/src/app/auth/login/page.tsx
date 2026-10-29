@@ -2,11 +2,6 @@
 import { useState } from 'react'
 import { createClient } from '@/core/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card'
-import { Button } from '@/core/components/ui/button'
-import { Input } from '@/core/components/ui/input'
-import { Label } from '@/core/components/ui/label'
-import { Loader2, Sprout, Users, Globe, Heart } from 'lucide-react'
 
 type Mode = 'login' | 'register' | 'forgot'
 
@@ -15,13 +10,11 @@ export default function AuthPage() {
   const supabase = createClient()
   const router = useRouter()
 
-  // Login state
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
-  // Register state
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
@@ -30,7 +23,6 @@ export default function AuthPage() {
   const [regLoading, setRegLoading] = useState(false)
   const [regSent, setRegSent] = useState(false)
 
-  // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotError, setForgotError] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -41,12 +33,7 @@ export default function AuthPage() {
     setLoginError('')
     setLoginLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword })
-    if (error) {
-      setLoginError(error.message)
-    } else {
-      router.push('/home')
-      router.refresh()
-    }
+    if (error) { setLoginError(error.message) } else { router.push('/home'); router.refresh() }
     setLoginLoading(false)
   }
 
@@ -64,14 +51,9 @@ export default function AuthPage() {
         emailRedirectTo: `${location.origin}/auth/callback?onboarding=1`,
       },
     })
-    if (error) {
-      setRegError(error.message)
-    } else if (data.user && !data.session) {
-      setRegSent(true)
-    } else {
-      router.push('/home')
-      router.refresh()
-    }
+    if (error) { setRegError(error.message) }
+    else if (data.user && !data.session) { setRegSent(true) }
+    else { router.push('/home'); router.refresh() }
     setRegLoading(false)
   }
 
@@ -79,196 +61,210 @@ export default function AuthPage() {
     e.preventDefault()
     setForgotError('')
     setForgotLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${location.origin}/auth/reset-password`,
-    })
-    if (error) {
-      setForgotError(error.message)
-    } else {
-      setForgotSent(true)
-    }
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, { redirectTo: `${location.origin}/auth/reset-password` })
+    if (error) { setForgotError(error.message) } else { setForgotSent(true) }
     setForgotLoading(false)
   }
 
-  const titles: Record<Mode, string> = {
-    login: 'Welcome back',
-    register: 'Join the network',
-    forgot: 'Reset your password',
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 14,
+    border: '1px solid var(--rule)', background: 'var(--bg-2)',
+    color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
+    fontFamily: 'inherit', transition: 'border-color 120ms',
   }
-  const descriptions: Record<Mode, string> = {
-    login: 'Sign in to connect with the regenerative community',
-    register: 'Create your profile and start building connections',
-    forgot: 'Enter your email and we\'ll send you a reset link',
+  const btn: React.CSSProperties = {
+    width: '100%', padding: '12px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+    background: 'var(--ink)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+    transition: 'opacity 120ms',
   }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="flex items-center justify-center p-8 bg-background">
-        <Card className="w-full max-w-md border-card-border">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Sprout className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span className="text-2xl font-bold">MyCoNet</span>
-            </div>
-            <CardTitle className="text-2xl">{titles[mode]}</CardTitle>
-            <CardDescription>{descriptions[mode]}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {mode === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input id="login-email" type="email" required
-                    value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                    placeholder="you@example.com" />
+    <div style={{ minHeight: '100vh', display: 'grid', background: 'var(--bg)' }} className="auth-page-grid">
+
+      {/* Left — form */}
+      <div className="auth-form-panel">
+        <div style={{ width: '100%', maxWidth: 400 }}>
+
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className="auth-logo-wrap">
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--ink)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>🌱</div>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)' }}>MyCoNet</span>
+          </div>
+
+          {mode === 'login' && (
+            <>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>Welcome back</h1>
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', margin: '0 0 28px', lineHeight: 1.55 }}>Sign in to your community portal.</p>
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={lbl}>Email</label>
+                  <input style={inp} type="email" required value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="login-password">Password</Label>
-                    <button type="button" onClick={() => setMode('forgot')}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      Forgot password?
-                    </button>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <label style={{ ...lbl, marginBottom: 0 }}>Password</label>
+                    <button type="button" onClick={() => setMode('forgot')} style={{ fontSize: 12, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Forgot password?</button>
                   </div>
-                  <Input id="login-password" type="password" required
-                    value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
-                    placeholder="Enter your password" />
+                  <input style={inp} type="password" required value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="Enter your password" />
                 </div>
-                {loginError && <p className="text-sm text-destructive">{loginError}</p>}
-                <Button type="submit" className="w-full" disabled={loginLoading}>
-                  {loginLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</> : 'Sign in'}
-                </Button>
+                {loginError && <p style={{ fontSize: 13, color: '#ef4444', margin: 0 }}>{loginError}</p>}
+                <button type="submit" style={{ ...btn, opacity: loginLoading ? 0.6 : 1 }} disabled={loginLoading}>
+                  {loginLoading ? 'Signing in…' : 'Sign in'}
+                </button>
               </form>
-            )}
 
-            {mode === 'register' && (regSent ? (
-              <div className="text-center py-6 space-y-3">
-                <div className="text-4xl">✉️</div>
-                <p className="font-semibold">Check your inbox</p>
-                <p className="text-sm text-muted-foreground">
-                  We sent a confirmation link to <strong>{regEmail}</strong>. Click it to activate your account.
+              {/* Sign up CTA */}
+              <div style={{ marginTop: 32, padding: '20px 24px', borderRadius: 12, background: 'color-mix(in srgb, var(--accent-color) 6%, var(--surface))', border: '1px solid color-mix(in srgb, var(--accent-color) 20%, var(--rule))' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent-color)', marginBottom: 8 }}>Regen Hood 0</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>New here? You're welcome.</div>
+                <p style={{ fontSize: 12.5, color: 'var(--ink-3)', margin: '0 0 12px', lineHeight: 1.65 }}>
+                  This is the member portal for a <strong style={{ color: 'var(--ink-2)' }}>regenerative neighborhood</strong> being formed together — meet the people involved, read the community documentation, join if you align with the values, contribute to projects, and help make decisions.
                 </p>
+                <button type="button" onClick={() => setMode('register')} style={{ width: '100%', padding: '10px', borderRadius: 9, fontSize: 13, fontWeight: 600, background: 'var(--accent-color)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                  Create free account →
+                </button>
               </div>
-            ) : (
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reg-name">First Name</Label>
-                  <Input id="reg-name" required
-                    value={regFirstName} onChange={e => setRegFirstName(e.target.value)}
-                    placeholder="Jane" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-email">Email</Label>
-                  <Input id="reg-email" type="email" required
-                    value={regEmail} onChange={e => setRegEmail(e.target.value)}
-                    placeholder="you@example.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-password">Password</Label>
-                  <Input id="reg-password" type="password" required
-                    value={regPassword} onChange={e => setRegPassword(e.target.value)}
-                    placeholder="Create a password (min 6 chars)" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-confirm">Confirm Password</Label>
-                  <Input id="reg-confirm" type="password" required
-                    value={regConfirm} onChange={e => setRegConfirm(e.target.value)}
-                    placeholder="Confirm your password" />
-                </div>
-                {regError && <p className="text-sm text-destructive">{regError}</p>}
-                <Button type="submit" className="w-full" disabled={regLoading}>
-                  {regLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : 'Create account'}
-                </Button>
-              </form>
-            ))}
+            </>
+          )}
 
-            {mode === 'forgot' && (forgotSent ? (
-              <div className="text-center py-6 space-y-3">
-                <div className="text-4xl">✉️</div>
-                <p className="font-semibold">Check your inbox</p>
-                <p className="text-sm text-muted-foreground">
-                  We sent a password reset link to <strong>{forgotEmail}</strong>.
-                </p>
-                <Button variant="outline" className="mt-2" onClick={() => { setForgotSent(false); setMode('login') }}>
-                  Back to sign in
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgot} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="forgot-email">Email</Label>
-                  <Input id="forgot-email" type="email" required
-                    value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                    placeholder="you@example.com" />
-                </div>
-                {forgotError && <p className="text-sm text-destructive">{forgotError}</p>}
-                <Button type="submit" className="w-full" disabled={forgotLoading}>
-                  {forgotLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : 'Send reset link'}
-                </Button>
-              </form>
-            ))}
-
-            <div className="mt-6 text-center space-y-2">
-              {mode === 'login' && (
-                <button type="button" onClick={() => setMode('register')}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full">
-                  Don't have an account? Sign up
-                </button>
-              )}
-              {mode === 'register' && (
-                <button type="button" onClick={() => setMode('login')}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full">
-                  Already have an account? Sign in
-                </button>
-              )}
-              {mode === 'forgot' && !forgotSent && (
-                <button type="button" onClick={() => setMode('login')}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full">
-                  Back to sign in
-                </button>
-              )}
+          {mode === 'register' && (regSent ? (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
+              <h2 style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Check your inbox</h2>
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.6 }}>
+                We sent a confirmation link to <strong style={{ color: 'var(--ink-2)' }}>{regEmail}</strong>.<br />Click it to activate your account — then fill in your profile.
+              </p>
+              <button onClick={() => { setRegSent(false); setMode('login') }} style={{ marginTop: 24, padding: '10px 24px', borderRadius: 9, fontSize: 13, fontWeight: 600, border: '1px solid var(--rule)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+                Back to sign in
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent-color)', marginBottom: 10 }}>Regen Hood 0</div>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: '0 0 10px' }}>Join the community</h1>
+              <p style={{ fontSize: 13.5, color: 'var(--ink-3)', margin: '0 0 10px', lineHeight: 1.65 }}>
+                This portal is for <strong style={{ color: 'var(--ink-2)' }}>Regen Hood 0</strong> — a regenerative neighborhood being built together. Here you can:
+              </p>
+              {/* Mobile-only compact tagline (bullets are hidden on small screens) */}
+              <p className="auth-reg-tagline" style={{ display: 'none', fontSize: 13, color: 'var(--ink-3)', margin: '0 0 18px', lineHeight: 1.6 }}>
+                Meet the people, read the plan, join if you align, contribute to projects, and make decisions together.
+              </p>
+              <ul className="auth-reg-bullets">
+                {[
+                  "👋 Meet the people involved and see who's building this",
+                  '📋 Read the community documentation and neighborhood plan',
+                  '🌱 Join the group if you align with the values',
+                  '⚙️ Contribute to shared goals and projects',
+                  '☉ Participate in decisions together',
+                ].map(item => (
+                  <li key={item}><span>{item}</span></li>
+                ))}
+              </ul>
+              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={lbl}>First name</label>
+                  <input style={inp} required value={regFirstName} onChange={e => setRegFirstName(e.target.value)} placeholder="Jane" />
+                </div>
+                <div>
+                  <label style={lbl}>Email</label>
+                  <input style={inp} type="email" required value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
+                </div>
+                <div>
+                  <label style={lbl}>Password</label>
+                  <input style={inp} type="password" required value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Minimum 6 characters" />
+                </div>
+                <div>
+                  <label style={lbl}>Confirm password</label>
+                  <input style={inp} type="password" required value={regConfirm} onChange={e => setRegConfirm(e.target.value)} placeholder="Repeat your password" />
+                </div>
+                {regError && <p style={{ fontSize: 13, color: '#ef4444', margin: 0 }}>{regError}</p>}
+                <button type="submit" style={{ ...btn, opacity: regLoading ? 0.6 : 1, marginTop: 4 }} disabled={regLoading}>
+                  {regLoading ? 'Creating account…' : 'Create account →'}
+                </button>
+              </form>
+              <button type="button" onClick={() => setMode('login')} style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
+                Already have an account? Sign in
+              </button>
+            </>
+          ))}
+
+          {mode === 'forgot' && (forgotSent ? (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
+              <h2 style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Check your inbox</h2>
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.6 }}>We sent a reset link to <strong style={{ color: 'var(--ink-2)' }}>{forgotEmail}</strong>.</p>
+              <button onClick={() => { setForgotSent(false); setMode('login') }} style={{ marginTop: 24, padding: '10px 24px', borderRadius: 9, fontSize: 13, fontWeight: 600, border: '1px solid var(--rule)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>Reset your password</h1>
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', margin: '0 0 28px' }}>Enter your email and we'll send a reset link.</p>
+              <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={lbl}>Email</label>
+                  <input style={inp} type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="you@example.com" />
+                </div>
+                {forgotError && <p style={{ fontSize: 13, color: '#ef4444', margin: 0 }}>{forgotError}</p>}
+                <button type="submit" style={{ ...btn, opacity: forgotLoading ? 0.6 : 1 }} disabled={forgotLoading}>
+                  {forgotLoading ? 'Sending…' : 'Send reset link'}
+                </button>
+              </form>
+              <button type="button" onClick={() => setMode('login')} style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
+                Back to sign in
+              </button>
+            </>
+          ))}
+        </div>
       </div>
 
-      <div className="hidden lg:flex flex-col justify-center p-12 bg-primary text-primary-foreground">
-        <div className="max-w-lg">
-          <h1 className="text-4xl font-bold mb-6">Connect with aligned humans</h1>
-          <p className="text-xl mb-12 opacity-90">
-            MyCoNet is your community portal — connect with members, explore the project plan, and build together.
-          </p>
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-lg bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
-                <Users className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">Deep Profiles</h3>
-                <p className="opacity-80">Share your values, personality, and goals to find suggested matches.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-lg bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
-                <Globe className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">Global & Local Networks</h3>
-                <p className="opacity-80">Find community builders across the world or in your region.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-lg bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
-                <Heart className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">Value Exchange</h3>
-                <p className="opacity-80">Share your offerings and discover what others can provide.</p>
-              </div>
-            </div>
+      {/* Right — value prop panel */}
+      <div style={{ background: 'var(--ink)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 52px', position: 'relative', overflow: 'hidden' }} className="auth-right-panel">
+        {/* Decorative blob */}
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+            MyCommunityNetwork
           </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+            Regen Hood 0
+          </div>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 700, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.02em', margin: '0 0 20px', maxWidth: '16ch' }}>
+            A regenerative neighborhood, built together.
+          </h2>
+          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, margin: '0 0 40px', maxWidth: '38ch' }}>
+            Meet the people, read the shared plan, join if you align with the values, contribute to projects, and help decide what happens next.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {[
+              { icon: '👤', title: 'Deep profiles', desc: 'Share your values, skills, and goals. Get matched with people who align.' },
+              { icon: '🗳️', title: '4-layer governance', desc: 'Every proposal is evaluated by Sociocracy, Democracy, Meritocracy, and AI.' },
+              { icon: '⚙️', title: 'Real project ops', desc: 'Propose projects, form agreements, track deliverables together.' },
+            ].map(f => (
+              <div key={f.title} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{f.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55 }}>{f.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {mode === 'login' && (
+            <div style={{ marginTop: 40, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>Don't have an account yet?</p>
+              <button onClick={() => setMode('register')} style={{ padding: '10px 22px', borderRadius: 9, fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', transition: 'background 120ms' }}>
+                Sign up — it's free →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
